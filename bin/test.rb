@@ -9,9 +9,9 @@ rotation = {
   'uno' => 1,
   'un' => 1,
   'two' => 2,
-  'deux' => 2,
+  'deux' => 2
 }
 
-x = ScheduleMaker::Schedule.new(rotation, :rotation_count => 2, :debug => true)
+x = ScheduleMaker::Schedule.new(rotation, rotation_count: 2, debug: true)
 x.optimize
 puts x.as_schedule('2016-05-03T00:00:00')
