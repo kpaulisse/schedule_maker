@@ -1,0 +1,40 @@
+# Sample schedules for spec tests
+
+small_1:
+  - apple: 1
+  - banana: 1
+  - clementine: 1
+  - date: 2
+  - elderberry: 2
+  - fig: 4
+  - apple: 1
+  - banana: 1
+  - clementine: 1
+  - apple: 1
+  - banana: 1
+  - clementine: 1
+  - date: 2
+  - elderberry: 2
+  - apple: 1
+  - banana: 1
+  - clementine: 1
+
+small_initial:
+  - apple: 1
+  - banana: 1
+  - date: 2
+  - clementine: 1
+  - apple: 1
+  - elderberry: 2
+  - banana: 1
+  - clementine: 1
+  - fig: 4
+  - date: 2
+  - apple: 1
+  - banana: 1
+  - elderberry: 2
+  - clementine: 1
+  - apple: 1
+  - banana: 1
+  - clementine: 1
+  

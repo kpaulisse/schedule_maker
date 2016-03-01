@@ -1,0 +1,68 @@
+# Sample rotations for spec tests
+
+trivial:
+  apple: 1
+
+equal-sized:
+  apple: 1
+  banana: 1
+  clementine: 1
+  date: 1
+  elderberry: 1
+
+small:
+  apple: 1
+  banana: 1
+  clementine: 1
+  date: 2
+  elderberry: 2
+  fig: 4
+
+medium:
+  apple: 1
+  banana: 1
+  clementine: 1
+  date: 1
+  elderberry: 1
+  fig: 2
+  grape: 2
+  honeydew: 2
+  ivy: 4
+  jalapeno: 4
+
+large:
+  apple: 1
+  banana: 1
+  clementine: 1
+  date: 1
+  elderberry: 1
+  fig: 1
+  grape: 1
+  honeydew: 2
+  ivy: 2
+  jalapeno: 2
+  kiwi: 2
+  lemon: 2
+  mango: 2
+  nectarine: 4
+  orange: 4
+  plum: 4
+
+variety:
+  apple: 1
+  banana: 1
+  clementine: 1
+  date: 1
+  elderberry: 2
+  fig: 2
+  grape: 2
+  honeydew: 3
+  ivy: 3
+  jalapeno: 4
+  kiwi: 4
+  lemon: 4
+  mango: 6
+  nectarine: 6
+  orange: 7
+  plum: 10
+  
