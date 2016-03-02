@@ -14,6 +14,7 @@ module ScheduleMaker
     end
 
     def self.create_schedule(schedule)
+      raise "Invalid schedule (#{schedule.class} => #{schedule.inspect})" unless schedule.is_a?(Array)
       result = []
       schedule.each do |period|
         result << ScheduleMaker::Period.new(period.keys[0], period.values[0])

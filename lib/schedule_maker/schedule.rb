@@ -7,20 +7,30 @@
 # https://github.com/kpaulisse/schedule_maker
 
 module ScheduleMaker
+  # A ScheduleMaker::Schedule object is the externally-facing representation of a shift
+  # schedule. It contains the rotation (stored in @rotation) which is essentially an Array<Period>
+  # and some additional metadata and methods. It also contains the 'optimize' method, which
+  # repeatedly calls the 'iterate' method on the underlying rotation, and controls when the result
+  # is good enough to exit.
+  #
+  # It has the following important properties:
+  # - @rotation                ScheduleMaker::Rotation  The underlying rotation of shifts
+  # - @debug                   Boolean                  Cause debugging information to print
+  # - @number_of_participants  Fixnum                   Number of unique participants in rotation
+  # - @start                   DateTime                 Start date for schedule and rotation
   class Schedule
-    attr_reader :rotation
-
     # Constructor
     # @param hash_of_names [Hash<String,Fixnum>] Participant name and shift length
     def initialize(hash_of_names, options = {})
       # Validate hash of names
       validate_hash_of_names(hash_of_names)
+      @number_of_participants = hash_of_names.keys.size
 
       # Calculate desired rotation period spacing and total length
       count = options.fetch(:rotation_count, 1)
       prev_rotation = options.fetch(:prev_rotation, [])
-      @rotation = ScheduleMaker::Rotation.new(hash_of_names, count, prev_rotation)
-      @participants = hash_of_names
+      @start = ScheduleMaker::Util.dateparse(options.fetch(:start, ScheduleMaker::Util.midnight_today))
+      @rotation = ScheduleMaker::Rotation.new(hash_of_names, count, prev_rotation, nil, start: @start)
 
       # Other variables
       @debug = options.fetch(:debug, false)
@@ -32,7 +42,7 @@ module ScheduleMaker
     #    (see #to_schedule)
     # @return [Array<Hash<:start,:end,:assignee,:length>>] Resulting schedule in order
     def as_schedule(start_date, options = {})
-      ScheduleMaker::ScheduleUtil::to_schedule(start_date, @rotation.schedule, options)
+      ScheduleMaker::ScheduleUtil.to_schedule(start_date, @rotation.rotation, options)
     end
 
     # Controller to run optimization and detect when an acceptable rotation is built.
@@ -49,6 +59,8 @@ module ScheduleMaker
       total_time = 0
       reset_time = 0
       reset_tries = 0
+      reset_max = [@number_of_participants**3, 500].min
+      reset_try_max = [@number_of_participants**2, 50].min
       candidates = []
       candidates << best_state
 
@@ -65,12 +77,13 @@ module ScheduleMaker
           best_pain = new_pain
           reset_tries = 0
           reset_time = 0
+          puts as_schedule(@start) if @debug
         end
 
         if @debug
           str = "Time: #{total_time}<#{max_iterations}"
-          str += "|#{reset_time}<#{@participants.keys.size**3}"
-          str += "|#{reset_tries}<#{@participants.keys.size**2}"
+          str += "|#{reset_time}<#{reset_max}"
+          str += "|#{reset_tries}<#{reset_try_max}"
           str += "; Pain=#{current_pain}|#{new_pain}|#{orig_pain}|#{best_pain}"
           puts str
         end
@@ -82,9 +95,9 @@ module ScheduleMaker
           current_pain = new_pain
         end
 
-        next unless reset_time >= @participants.keys.size**3
+        next unless reset_time >= reset_max
         reset_tries += 1
-        break if reset_tries >= @participants.keys.size**2
+        break if reset_tries >= reset_try_max
         current_state = orig_state.dup
         current_pain = current_state.painscore(true)
         current_time = 0
@@ -115,6 +128,13 @@ module ScheduleMaker
     def validate_period(key, value)
       raise ArgumentError, "Key #{key.inspect} is a #{key.class}" unless key.is_a?(String)
       raise ArgumentError, 'Empty participant name is not allowed' if key.empty?
+
+      if value.is_a?(Hash)
+        raise ArgumentError, "Information for #{key} does not contain 'period_length'" unless value.key?('period_length')
+        validate_period(key, value['period_length'])
+        return true
+      end
+
       raise ArgumentError, "Key #{key} has invalid period length #{value.class}" unless value.is_a?(Fixnum)
       raise ArgumentError, "period length #{value} is not >= 1" if value < 1
       raise ArgumentError, "period length #{value} is not <= 31" if value > 31

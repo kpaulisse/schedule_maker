@@ -10,7 +10,7 @@ module ScheduleMaker
   # This represents an on-call shift, but since "shift" is a reserved word in
   # nearly every programming language, I used "Period" instead.
   class Period
-    attr_reader :participant, :period_length
+    attr_reader :participant, :period_length, :start
 
     # Constructor
     #

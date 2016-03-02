@@ -1,14 +1,22 @@
 # Sample rotations for spec tests
 
-trivial:
-  apple: 1
-
-equal-sized:
+mixed_format:
   apple: 1
   banana: 1
-  clementine: 1
-  date: 1
-  elderberry: 1
+  clementine:
+    period_length: 1
+    start: '2016-01-12T00:00:00'
+  date: 2
+  elderberry: 2
+  fig: 4
+
+simple_1:
+  apple: 1
+  banana: 1
+
+simple_2:
+  apple: 2
+  banana: 2
 
 small:
   apple: 1
@@ -18,35 +26,11 @@ small:
   elderberry: 2
   fig: 4
 
-medium:
+tiny_datetest:
   apple: 1
-  banana: 1
-  clementine: 1
-  date: 1
-  elderberry: 1
-  fig: 2
-  grape: 2
-  honeydew: 2
-  ivy: 4
-  jalapeno: 4
-
-large:
-  apple: 1
-  banana: 1
-  clementine: 1
-  date: 1
-  elderberry: 1
-  fig: 1
-  grape: 1
-  honeydew: 2
-  ivy: 2
-  jalapeno: 2
-  kiwi: 2
-  lemon: 2
-  mango: 2
-  nectarine: 4
-  orange: 4
-  plum: 4
+  banana:
+    period_length: 1
+    start: '2016-01-02T00:00:00'
 
 variety:
   apple: 1
@@ -65,4 +49,3 @@ variety:
   nectarine: 6
   orange: 7
   plum: 10
-  
