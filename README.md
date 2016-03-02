@@ -9,12 +9,13 @@ The resulting schedule will always have these properties:
 - The schedule is a series of consecutive, non-overlapping shifts
 - Each shift has exactly one assignee
 - Each participant covers the same total number of days (or other time unit of your choice)
+- Supports adding participants only after a certain date
 
 This gem does **not** currently do any of the following, although I may work on some or all of these in the future:
 
 - Distribute shifts on certain days (e.g., treat weekend days or holidays different from any other days)
 - Support non-equal distribution of days per participant
-- Support blackout dates per participant (e.g., avoid vacation days, or add to schedule part way through)
+- Support blackout dates per participant (e.g., avoid vacation days)
 
 If you use this gem, expect the following:
 

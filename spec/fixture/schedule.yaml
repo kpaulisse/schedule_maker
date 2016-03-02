@@ -37,4 +37,27 @@ small_initial:
   - apple: 1
   - banana: 1
   - clementine: 1
-  
+
+tiny_datetest_1:
+  - apple: 1
+  - banana: 1
+  - apple: 1
+  - banana: 1
+
+tiny_datetest_2:
+  - banana: 1
+  - apple: 1
+  - banana: 1
+  - apple: 1
+
+simple_1:
+  - apple: 1
+  - banana: 1
+  - apple: 1
+  - banana: 1
+
+simple_2:
+  - apple: 2
+  - banana: 2
+  - apple: 2
+  - banana: 2

@@ -7,6 +7,7 @@
 # https://github.com/kpaulisse/schedule_maker
 
 module ScheduleMaker
+  # Some static methods that are useful when dealing with schedules.
   class ScheduleUtil
     # Format rotation as a schedule, starting at a certain date
     # @param start_date [String] Start date yyyy-mm-ddThh:mm:ss
@@ -17,19 +18,13 @@ module ScheduleMaker
     #   - :offset [String] +##:##, -##:## => Add this to all times
     # @return [Array<Hash<:start,:end,:assignee,:length>>] Resulting schedule in order
     def self.to_schedule(start_date, rotation, options = {})
-      unless start_date =~ /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/
-        raise ArgumentError, 'Date expects format XXXX-XX-XXTXX:XX:XX'
-      end
-      require 'date'
-      start = DateTime.parse("#{start_date}+00:00")
+      start = ScheduleMaker::Util.dateparse(start_date)
       shift_length = options.fetch(:shift_length, 1)
       consolidated = options.fetch(:consolidated, false)
       offset = options.fetch(:offset, '+00:00')
       return to_schedule_consolidated(start, rotation, shift_length, offset) if consolidated
       to_schedule_not_consolidated(start, rotation, shift_length, offset)
     end
-
-    private
 
     # Build a schedule that lists out all shifts, not consolidated
     def self.to_schedule_not_consolidated(start, rotation, shift_length, offset)

@@ -1,2 +1,14 @@
-Style/LineLength:
+Metrics/LineLength:
   Max: 130
+
+# Temporary, so that other violations don't get lost in the noise
+Metrics/AbcSize:
+  Max: 100
+Metrics/ClassLength:
+  Max: 500
+Metrics/CyclomaticComplexity:
+  Max: 50
+Metrics/MethodLength:
+  Max: 50
+Metrics/PerceivedComplexity:
+  Max: 50
