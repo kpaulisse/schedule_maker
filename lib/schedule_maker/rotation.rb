@@ -44,7 +44,7 @@ module ScheduleMaker
       @participants = ScheduleMaker::RotationUtil.prepare_participants(participants, @start)
       @period_lcm = ScheduleMaker::RotationUtil.participant_lcm(participants)
       @target_spacing = @participants.keys.size - 1
-      @rotation = ScheduleMaker::RotationUtil.init_sched_handler(init_sched, @participants, count, @start, @day_length)
+      @rotation = ScheduleMaker::RotationUtil.initial_schedule_handler(init_sched, @participants, count, @start, @day_length)
       @rotation_length = ScheduleMaker::RotationUtil.calculate_rotation_length(@rotation)
       @prev_rotation = ScheduleMaker::RotationUtil.build_prev_rotation_hash(prev_rotation)
       @prev_rotation_save = prev_rotation
