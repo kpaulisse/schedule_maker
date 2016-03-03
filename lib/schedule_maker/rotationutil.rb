@@ -30,7 +30,7 @@ module ScheduleMaker
     # @param participants [Hash<String, (Fixnum|Hash)>] Participant hash
     # @return [Fixnum] LCM of shift lengths
     def self.participant_lcm(participants)
-      fail 'participant_lcm(participants) failed on empty input' if participants.empty?
+      raise 'participant_lcm(participants) failed on empty input' if participants.empty?
       integer_array = []
       participants.values.each do |val|
         case val
@@ -41,7 +41,7 @@ module ScheduleMaker
         when Hash
           integer_array << ScheduleMaker::Util.get_element_from_hash(val, :period_length, nil)
         else
-          fail "participant_lcm failed on #{val.class} : '#{val.inspect}'"
+          raise "participant_lcm failed on #{val.class} : '#{val.inspect}'"
         end
       end
       integer_array.reduce(:lcm)
@@ -176,7 +176,7 @@ module ScheduleMaker
     # @result Fixnum Sum of all period lengths in rotation
     def self.calculate_rotation_length(rotation)
       return 0 unless rotation.is_a?(Array) && !rotation.empty?
-      rotation.map { |x| x.period_length }.reduce(&:+)
+      rotation.map(&:period_length).reduce(&:+)
     end
   end
 end

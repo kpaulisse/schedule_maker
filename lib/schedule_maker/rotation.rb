@@ -29,11 +29,11 @@ module ScheduleMaker
     # @param participants [Hash<String,Fixnum>] Participant name (key) and shift length (value)
     # @param count [Fixnum] Number of consecutive schedules to generate
     # @param prev_rotation [Array<Period>] Previous rotation to use in scoring
-    # @param initial_schedule [Array<Period>] Starting point
+    # @param init_sched [Array<Period>] Starting point
     # @param options
     #   - :start      => DateTime object representing start date of this period
     #   - :day_length => Float representing the length of a "day" (1.0 is normal)
-    def initialize(participants, count = 1, prev_rotation = [], initial_schedule = nil, options = {})
+    def initialize(participants, count = 1, prev_rotation = [], init_sched = nil, options = {})
       raise ArgumentError, 'Participants argument must be a hash' unless participants.is_a?(Hash)
       raise ArgumentError, 'Participants hash cannot be empty' if participants.empty?
       raise ArgumentError, 'Count must be an integer' unless count.is_a?(Fixnum)
@@ -44,7 +44,7 @@ module ScheduleMaker
       @participants = ScheduleMaker::RotationUtil.prepare_participants(participants, @start)
       @period_lcm = ScheduleMaker::RotationUtil.participant_lcm(participants)
       @target_spacing = @participants.keys.size - 1
-      @rotation = ScheduleMaker::RotationUtil.initial_schedule_handler(initial_schedule, @participants, count, @start, @day_length)
+      @rotation = ScheduleMaker::RotationUtil.init_sched_handler(init_sched, @participants, count, @start, @day_length)
       @rotation_length = ScheduleMaker::RotationUtil.calculate_rotation_length(@rotation)
       @prev_rotation = ScheduleMaker::RotationUtil.build_prev_rotation_hash(prev_rotation)
       @prev_rotation_save = prev_rotation

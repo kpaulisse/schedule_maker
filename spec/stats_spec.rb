@@ -2,7 +2,7 @@ describe ScheduleMaker::Stats do
   before(:all) do
     @rotations = ScheduleMaker::Spec.load_rotation
     @start = ScheduleMaker::Util.dateparse('2016-01-01T00:00:00')
-    @schedule = ScheduleMaker::Schedule.new(@rotations['mixed_format'], :start => @start, :rotation_count => 1)
+    @schedule = ScheduleMaker::Schedule.new(@rotations['mixed_format'], start: @start, rotation_count: 1)
     @stats = ScheduleMaker::Stats.stats(@schedule, @start)
   end
 

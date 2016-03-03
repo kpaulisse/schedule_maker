@@ -309,17 +309,15 @@ describe ScheduleMaker::Rotation do
       previous_schedule = ScheduleMaker::Spec.create_schedule(@schedules['simple_1'])
       start = ScheduleMaker::Util.dateparse('2015-12-18T00:00:00')
       rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 3, previous_schedule, nil, start: start)
-      sked = ScheduleMaker::ScheduleUtil.to_schedule(start, rotation.rotation)
       # clementine misses 1/3 of eligible shifts = 4
       expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be true
-      expect(rotation.rotation.select { |x| x.participant == 'clementine' }.size).to eq(8)
+      expect(rotation.rotation.count { |x| x.participant == 'clementine' }).to eq(8)
       expect(rotation.rotation_length).to eq(68)
     end
 
     it 'Should handle start dates during the 2nd shift without previous schedule' do
       start = ScheduleMaker::Util.dateparse('2015-12-18T00:00:00')
       rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 3, [], nil, start: start)
-      sked = ScheduleMaker::ScheduleUtil.to_schedule(start, rotation.rotation)
       # clementine misses 1/3 of eligible shifts = 4
       expect(rotation.rotation_length).to eq(68)
     end
