@@ -14,13 +14,13 @@ rotation = {
   'honeydew' => 1,
   'rhubarb' => 1,
   'starfruit' => 4,
-  'tangerine' => { 'period_length' => 4, 'start' => '2016-06-01T00:00:00' },
+  'tangerine' => { 'period_length' => 4, 'start' => '2016-06-15T00:00:00' },
   'uglifruit' => 4,
   'watercress' => 4,
   'yam' => 1
 }
 
 start = '2016-04-13T00:00:00'
-x = ScheduleMaker::Schedule.new(rotation, rotation_count: 1, debug: true, start: start, period_length: 1)
+x = ScheduleMaker::Schedule.new(rotation, rotation_count: 3, debug: true, start: start, period_length: 1)
 x.optimize
 puts x.as_schedule(start)

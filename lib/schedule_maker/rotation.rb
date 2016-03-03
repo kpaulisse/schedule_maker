@@ -41,11 +41,12 @@ module ScheduleMaker
       @count = count
       @start = options.fetch(:start, ScheduleMaker::Util.midnight_today)
       @day_length = options.fetch(:day_length, 1.0)
-      prepare_participants(participants)
-      @rotation_length = @period_lcm * @participants.keys.size * count
+      @participants = ScheduleMaker::RotationUtil.prepare_participants(participants, @start)
+      @period_lcm = ScheduleMaker::RotationUtil.participant_lcm(participants)
       @target_spacing = @participants.keys.size - 1
-      @rotation = initial_schedule_handler(initial_schedule, count)
-      @prev_rotation = build_prev_rotation_hash(prev_rotation)
+      @rotation = ScheduleMaker::RotationUtil.initial_schedule_handler(initial_schedule, @participants, count, @start, @day_length)
+      @rotation_length = ScheduleMaker::RotationUtil.calculate_rotation_length(@rotation)
+      @prev_rotation = ScheduleMaker::RotationUtil.build_prev_rotation_hash(prev_rotation)
       @prev_rotation_save = prev_rotation
     end
 
@@ -176,22 +177,6 @@ module ScheduleMaker
 
     private
 
-    # Prepare participants hash, supporting both integer (shift length) and hash (shift length with other
-    # options) as the argument for each participant.
-    # @param participants [Hash<String, (Fixnum|Hash)>] Participant input array
-    def prepare_participants(participants)
-      @participants = {}
-      lcm_array = []
-      participants.keys.each do |key|
-        p_k = participants[key]
-        @participants[key] = {}
-        @participants[key][:period_length] = ScheduleMaker::Util.get_element_from_hash(p_k, :period_length, p_k)
-        @participants[key][:start] = ScheduleMaker::Util.dateparse(ScheduleMaker::Util.get_element_from_hash(p_k, :start, @start))
-        lcm_array << @participants[key][:period_length]
-      end
-      @period_lcm = lcm_array.reduce(:lcm)
-    end
-
     # Perform a trial swap of index_1 and index_2. If an improvement to score was made, then 90%
     # of the time leave the swap in place. If the score didn't improve, or 10% of randomness hit,
     # undo the swap.
@@ -206,113 +191,6 @@ module ScheduleMaker
       return new_score if new_score < old_score && rand < 0.90
       trial.swap(index_1, index_2)
       old_score
-    end
-
-    # Handle the parameter of the initial schedule, and if it's nil, build the initial schedule.
-    def initial_schedule_handler(initial_schedule = nil, count = 1)
-      return initial_schedule unless initial_schedule.nil?
-      initial_schedule = build_initial_schedule
-      result = []
-      count.times { result.concat initial_schedule }
-      result
-    end
-
-    # Given a previous rotation, build the previous shift for each participant
-    # as a hash of <Participant, Previous Shift Offset>
-    #
-    # @param prev_rotation [Array<Period>] Previous rotation
-    # @return [Hash<Participant, Fixnum>] Previous shift offset for each participant
-    def build_prev_rotation_hash(prev_rotation)
-      result = {}
-      counter = 0
-      prev_rotation.reverse_each do |period|
-        counter += 1
-        result[period.participant] ||= counter
-        counter += (period.period_length - 1)
-      end
-      result
-    end
-
-    # Turns a hash of <Participant, Period Length> into a hash organized by period length.
-    # @return [Hash<Period Length,Array<Participant>>] Participants by period length
-    def build_initial_participant_arrays
-      participants_by_period = {}
-      period_lengths = @participants.values.map { |x| x[:period_length] }.uniq.sort
-      period_lengths.each do |period_length|
-        participants = @participants.keys.select { |x| @participants[x][:period_length] == period_length }.sort
-        participants_by_period[period_length] ||= []
-        (@count * @period_lcm / period_length).times do
-          participants_by_period[period_length].concat participants
-        end
-      end
-      participants_by_period
-    end
-
-    # Builds the initial (non-optimized) schedule by evenly distributing the various shift
-    # lengths throughout the schedule.
-    # @return [Array<Period>] The initial schedule
-    def build_initial_schedule
-      participants_by_period = build_initial_participant_arrays
-      period_lengths = @participants.values.map { |x| x[:period_length] }.uniq.sort
-      shortest_period = period_lengths.shift
-      result = participants_by_period[shortest_period].map { |x| ScheduleMaker::Period.new(x, shortest_period) }
-      period_lengths.each do |period_length|
-        result = insert_into_schedule(result, participants_by_period[period_length], period_length)
-      end
-      remove_from_schedule(result)
-    end
-
-    # Remove people from this schedule based on start dates
-    def remove_from_schedule(result, participants = @participants)
-      removed = {}
-      calculated_shifts = calculate_shifts(participants)
-      0.upto(result.size - 1) do |index|
-        ele = result[index]
-        removed[ele.participant] ||= 0.0
-        if calculated_shifts.key?(ele.participant)
-          next if calculated_shifts[ele.participant] == 1
-          remove_schedule_element(result, removed, index) if calculated_shifts[ele.participant] > removed[ele.participant]
-        else
-          remove_schedule_element(result, removed, index)
-        end
-      end
-      result = result.delete_if(&:nil?)
-      result
-    end
-
-    # Remove element at index and adjust rotation length accordingly
-    def remove_schedule_element(result, removed, index)
-      ele = result[index]
-      result[index] = nil
-      removed[ele.participant] += (1.0 * ele.period_length) / @period_lcm
-      @rotation_length -= ele.period_length
-    end
-
-    # Calculate the number of shifts that a participant must cover
-    def calculate_shifts(participants = @participants)
-      schedule_end = @start + (@day_length * @rotation_length)
-      schedule_length = ((schedule_end - @start) * 24 * 60 * 60).to_i
-      result = {}
-      participants.keys.each do |key|
-        start = participants[key][:start]
-        next if start >= schedule_end
-        result[key] = start <= @start ? 0 : ((start - @start) * 24 * 60 * 60).to_i / (schedule_length * 1.0)
-      end
-      result
-    end
-
-    # Drop in new elements to an array at evenly spaced intervals
-    #
-    #
-    def insert_into_schedule(result, participants, period_length)
-      spacing = result.size / (1 + participants.size)
-      counter = 0
-      participants.each do |participant|
-        counter += 1
-        period = ScheduleMaker::Period.new(participant, period_length)
-        result.insert(counter + counter * spacing - 1, period)
-      end
-      result
     end
 
     # Initialize pain object for a participant

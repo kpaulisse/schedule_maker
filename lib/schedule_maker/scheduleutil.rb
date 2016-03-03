@@ -16,19 +16,21 @@ module ScheduleMaker
     #   - :shift_length [Numeric] Length of shift in days
     #   - :consolidated [Boolean] True to consolidate multiple shifts into one
     #   - :offset [String] +##:##, -##:## => Add this to all times
+    #   - :prev_rotation [Array<Period>] Previous rotation, for calculating more spacings
     # @return [Array<Hash<:start,:end,:assignee,:length>>] Resulting schedule in order
     def self.to_schedule(start_date, rotation, options = {})
       start = ScheduleMaker::Util.dateparse(start_date)
       shift_length = options.fetch(:shift_length, 1)
       consolidated = options.fetch(:consolidated, false)
       offset = options.fetch(:offset, '+00:00')
-      return to_schedule_consolidated(start, rotation, shift_length, offset) if consolidated
-      to_schedule_not_consolidated(start, rotation, shift_length, offset)
+      prev_rotation = ScheduleMaker::RotationUtil.build_prev_rotation_hash(options.fetch(:prev_rotation, []))
+      prev_rotation_timestamped = build_timestamped_prev_rotation_hash(prev_rotation, start, shift_length)
+      return to_schedule_consolidated(start, rotation, shift_length, offset, prev_rotation_timestamped) if consolidated
+      to_schedule_not_consolidated(start, rotation, shift_length, offset, prev_rotation_timestamped)
     end
 
     # Build a schedule that lists out all shifts, not consolidated
-    def self.to_schedule_not_consolidated(start, rotation, shift_length, offset)
-      prev = {}
+    def self.to_schedule_not_consolidated(start, rotation, shift_length, offset, prev = {})
       result = []
       rotation.each do |period|
         period.period_length.times do
@@ -47,8 +49,7 @@ module ScheduleMaker
     end
 
     # Build a schedule that consolidates consecutive shifts belonging to the same assignee
-    def self.to_schedule_consolidated(start, rotation, shift_length, offset)
-      prev = {}
+    def self.to_schedule_consolidated(start, rotation, shift_length, offset, prev = {})
       result = []
       rotation_copy = rotation.dup
       rotation_copy << false # Fake last element to trigger appending to result
@@ -74,6 +75,15 @@ module ScheduleMaker
           buffer[:length] += period.period_length
         end
         start += period.period_length * shift_length
+      end
+      result
+    end
+
+    def self.build_timestamped_prev_rotation_hash(hash_in, start, shift_length)
+      return hash_in if hash_in.empty?
+      result = {}
+      hash_in.keys.each do |key|
+        result[key] = start.to_time.to_i - ((hash_in[key] - 1) * shift_length * (24.0 * 60 * 60))
       end
       result
     end

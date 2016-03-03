@@ -6,6 +6,6 @@
 # Find the source code, report issues, and contribute at:
 # https://github.com/kpaulisse/schedule_maker
 
-%w(period rotation schedule scheduleutil util).each do |file|
+%w(period rotation rotationutil schedule scheduleutil stats util).each do |file|
   require File.join(File.dirname(__FILE__), 'schedule_maker', file)
 end

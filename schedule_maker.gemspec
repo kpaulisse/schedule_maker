@@ -10,7 +10,7 @@ require 'rake'
 
 Gem::Specification.new do |s|
   s.name        = 'schedule_maker'
-  s.version     = '0.0.2'
+  s.version     = '0.0.3'
   # s.platform    = Gem::Platform::RUBY
   s.authors     = 'Kevin Paulisse'
   s.date        = Time.now.strftime('%Y-%m-%d')
