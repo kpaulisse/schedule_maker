@@ -2,6 +2,7 @@ describe ScheduleMaker::Rotation do
   before(:all) do
     @rotations = ScheduleMaker::Spec.load_rotation
     @schedules = ScheduleMaker::Spec.load_schedule
+    @start = ScheduleMaker::Util.dateparse('2016-01-01T00:00:00')
   end
 
   describe '#new' do
@@ -13,17 +14,18 @@ describe ScheduleMaker::Rotation do
       dateobj = ScheduleMaker::Util.dateparse('2016-05-28T00:00:00')
       expect { ScheduleMaker::Rotation.new(@rotations['mixed_format'], 1, [], nil, start: dateobj) }.not_to raise_error
     end
-  end
 
-  describe '#period_lcm' do
-    it 'Should correctly compute least common multiple for a simple rotation' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      expect(rotation.period_lcm).to eq(4)
-    end
+    it 'Should construct a shift of the correct length with respect to :rotation_counter' do
+      rotation = @rotations['small']
 
-    it 'Should correctly compute least common multiple for a complex rotation' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['variety'])
-      expect(rotation.period_lcm).to eq(420)
+      rotation_1 = ScheduleMaker::Rotation.new(rotation, 1)
+      expect(rotation_1.rotation_length).to eq(24)
+
+      rotation_2 = ScheduleMaker::Rotation.new(rotation, 2)
+      expect(rotation_2.rotation_length).to eq(48)
+
+      rotation_3 = ScheduleMaker::Rotation.new(rotation, 3)
+      expect(rotation_3.rotation_length).to eq(72)
     end
   end
 
@@ -40,22 +42,28 @@ describe ScheduleMaker::Rotation do
   end
 
   describe '#remove_from_schedule' do
-    it 'Should correctly compute rotation length for a rotation from which there are complete removals' do
-      dateobj = ScheduleMaker::Util.dateparse('2012-01-01T00:00:00')
+    it 'Should correctly handle a complete removal' do
+      dateobj = ScheduleMaker::Util.dateparse('2015-12-01T00:00:00')
       rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 1, [], nil, start: dateobj)
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'apple')).to be true
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be false
       expect(rotation.rotation_length).to eq(20)
     end
 
-    it 'Should correctly compute rotation length for a rotation from which there are partial removals' do
+    it 'Should correctly handle a rotation from which there are partial removals' do
       dateobj = ScheduleMaker::Util.dateparse('2016-01-01T00:00:00')
       rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 1, [], nil, start: dateobj)
       expect(rotation.rotation_length).to eq(22)
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'apple')).to be true
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be true
     end
 
-    it 'Should correctly compute rotation length for a rotation from which there are no-op removals' do
+    it 'Should correctly handle a rotation from which there are no-op removals' do
       dateobj = ScheduleMaker::Util.dateparse('2016-02-01T00:00:00')
       rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 1, [], nil, start: dateobj)
       expect(rotation.rotation_length).to eq(24)
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'apple')).to be true
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be true
     end
   end
 
@@ -127,63 +135,6 @@ describe ScheduleMaker::Rotation do
       expect(rotation2.pain['date'][:pain]).to be false
       expect(rotation2.pain['elderberry'][:pain]).to be false
       expect(rotation2.pain['fig'][:pain]).to be true
-    end
-  end
-
-  describe '#build_prev_rotation_hash' do
-    it 'Should return empty hash map if incoming array is empty' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      expect(rotation.send(:build_prev_rotation_hash, [])).to eq({})
-    end
-
-    it 'Should properly construct hash map when a schedule is given' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      schedule = ScheduleMaker::Spec.create_schedule(@schedules['small_1'])
-      answer = {
-        'apple'      => 3,
-        'banana'     => 2,
-        'clementine' => 1,
-        'date'       => 6,
-        'elderberry' => 4,
-        'fig'        => 14
-      }
-      result = rotation.send(:build_prev_rotation_hash, schedule)
-      expect(result).to eq(answer)
-    end
-  end
-
-  describe '#build_initial_participant_arrays' do
-    it 'Should properly construct the hash map' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      answer = {
-        1 => [],
-        2 => %w(date elderberry date elderberry),
-        4 => ['fig']
-      }
-      4.times do
-        answer[1].concat %w(apple banana clementine)
-      end
-      result = rotation.send(:build_initial_participant_arrays)
-      expect(result).to eq(answer)
-    end
-  end
-
-  describe '#build_initial_schedule' do
-    it 'Should properly construct an initial trivial schedule' do
-      trivial_rotation = { 'apple' => 1 }
-      rotation = ScheduleMaker::Rotation.new(trivial_rotation)
-      result = rotation.send(:build_initial_schedule)
-      answer = [
-        ScheduleMaker::Period.new('apple', 1)
-      ]
-      expect(result).to eq(answer)
-    end
-
-    it 'Should properly construct an initial non-trivial schedule' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      schedule = ScheduleMaker::Spec.create_schedule(@schedules['small_initial'])
-      result = rotation.send(:build_initial_schedule)
-      expect(result).to eq(schedule)
     end
   end
 
@@ -343,6 +294,32 @@ describe ScheduleMaker::Rotation do
       initial_pain_score = schedule.painscore
       25.times { schedule = schedule.iterate }
       expect(schedule.painscore).to be < initial_pain_score
+    end
+  end
+
+  describe 'Misc_Integration_Tests' do
+    it 'Should not remove someone from the rotation just because they were not in the previous one' do
+      previous_schedule = ScheduleMaker::Spec.create_schedule(@schedules['simple_1'])
+      rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 1, previous_schedule)
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'apple')).to be true
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be true
+    end
+
+    it 'Should handle start dates during the 2nd shift with previous schedule' do
+      previous_schedule = ScheduleMaker::Spec.create_schedule(@schedules['simple_1'])
+      start = ScheduleMaker::Util.dateparse('2015-12-18T00:00:00')
+      rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 3, previous_schedule, nil, start: start)
+      # clementine misses 1/3 of eligible shifts = 4
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be true
+      expect(rotation.rotation.count { |x| x.participant == 'clementine' }).to eq(8)
+      expect(rotation.rotation_length).to eq(68)
+    end
+
+    it 'Should handle start dates during the 2nd shift without previous schedule' do
+      start = ScheduleMaker::Util.dateparse('2015-12-18T00:00:00')
+      rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 3, [], nil, start: start)
+      # clementine misses 1/3 of eligible shifts = 4
+      expect(rotation.rotation_length).to eq(68)
     end
   end
 end

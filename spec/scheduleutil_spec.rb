@@ -124,5 +124,73 @@ describe ScheduleMaker::ScheduleUtil do
                   prev: 1.0 }]
       expect(result).to eq(answer)
     end
+
+    it 'Should include correctly calculated :prev with respect to previous schedule (non-consolidated)' do
+      options = { shift_length: 1, consolidated: false, prev_rotation: rotation_2 }
+      result = ScheduleMaker::ScheduleUtil.to_schedule('2016-02-01T00:00:00', rotation_2, options)
+      answer = [{ start: '2016-02-01T00:00:00+00:00',
+                  end: '2016-02-02T00:00:00+00:00',
+                  assignee: 'apple',
+                  length: 1,
+                  prev: 0.0 },
+                { start: '2016-02-02T00:00:00+00:00',
+                  end: '2016-02-03T00:00:00+00:00',
+                  assignee: 'banana',
+                  length: 2,
+                  prev: 2.0 },
+                { start: '2016-02-03T00:00:00+00:00',
+                  end: '2016-02-04T00:00:00+00:00',
+                  assignee: 'banana',
+                  length: 2,
+                  prev: 3.0 },
+                { start: '2016-02-04T00:00:00+00:00',
+                  end: '2016-02-05T00:00:00+00:00',
+                  assignee: 'apple',
+                  length: 1,
+                  prev: 2.0 }]
+      expect(result).to eq(answer)
+    end
+
+    it 'Should include correctly calculated :prev with respect to previous schedule (consolidated)' do
+      options = { shift_length: 1, consolidated: true, prev_rotation: rotation_2 }
+      result = ScheduleMaker::ScheduleUtil.to_schedule('2016-02-01T00:00:00', rotation_2, options)
+      answer = [{ start: '2016-02-01T00:00:00+00:00',
+                  end: '2016-02-02T00:00:00+00:00',
+                  assignee: 'apple',
+                  length: 1,
+                  prev: 0.0 },
+                { start: '2016-02-02T00:00:00+00:00',
+                  end: '2016-02-04T00:00:00+00:00',
+                  assignee: 'banana',
+                  length: 2,
+                  prev: 2.0 },
+                { start: '2016-02-04T00:00:00+00:00',
+                  end: '2016-02-05T00:00:00+00:00',
+                  assignee: 'apple',
+                  length: 1,
+                  prev: 2.0 }]
+      expect(result).to eq(answer)
+    end
+
+    it 'Should include correctly calculated :prev with shift_length != 1' do
+      options = { shift_length: 0.5, consolidated: true, prev_rotation: rotation_2 }
+      result = ScheduleMaker::ScheduleUtil.to_schedule('2016-02-01T00:00:00', rotation_2, options)
+      answer = [{ start: '2016-02-01T00:00:00+00:00',
+                  end: '2016-02-01T12:00:00+00:00',
+                  assignee: 'apple',
+                  length: 1,
+                  prev: 0.0 },
+                { start: '2016-02-01T12:00:00+00:00',
+                  end: '2016-02-02T12:00:00+00:00',
+                  assignee: 'banana',
+                  length: 2,
+                  prev: 1.0 },
+                { start: '2016-02-02T12:00:00+00:00',
+                  end: '2016-02-03T00:00:00+00:00',
+                  assignee: 'apple',
+                  length: 1,
+                  prev: 1.0 }]
+      expect(result).to eq(answer)
+    end
   end
 end

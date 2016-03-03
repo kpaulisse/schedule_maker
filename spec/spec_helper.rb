@@ -21,5 +21,12 @@ module ScheduleMaker
       end
       result
     end
+
+    def self.include_shift_for(rotation, participant)
+      rotation.each do |period|
+        return true if period.participant == participant
+      end
+      false
+    end
   end
 end

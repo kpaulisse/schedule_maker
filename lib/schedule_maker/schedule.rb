@@ -108,6 +108,12 @@ module ScheduleMaker
       best_state
     end
 
+    # Call the 'stats' method in ScheduleMaker::Stats with this schedule's settings
+    # @return [Hash] Statistics
+    def stats
+      ScheduleMaker::Stats.stats(self, @start)
+    end
+
     private
 
     # Validates hash of names

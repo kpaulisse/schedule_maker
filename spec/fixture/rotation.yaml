@@ -6,7 +6,9 @@ mixed_format:
   clementine:
     period_length: 1
     start: '2016-01-12T00:00:00'
-  date: 2
+  date:
+    period_length: 2
+    start: '2015-01-12T00:00:00'  
   elderberry: 2
   fig: 4
 
