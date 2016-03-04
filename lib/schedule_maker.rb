@@ -9,3 +9,7 @@
 %w(period rotation rotationutil schedule scheduleutil stats util).each do |file|
   require File.join(File.dirname(__FILE__), 'schedule_maker', file)
 end
+
+%w(blackout spacing weekdays).each do |file|
+  require File.join(File.dirname(__FILE__), 'schedule_maker', 'datamodel', file)
+end

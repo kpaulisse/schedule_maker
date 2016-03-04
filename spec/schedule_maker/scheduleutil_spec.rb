@@ -1,3 +1,5 @@
+require_relative 'spec_helper'
+
 describe ScheduleMaker::ScheduleUtil do
   describe '#to_schedule' do
     rotation = [

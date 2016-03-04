@@ -1,3 +1,5 @@
+require_relative 'spec_helper'
+
 describe ScheduleMaker::Rotation do
   before(:all) do
     @rotations = ScheduleMaker::Spec.load_rotation
@@ -70,13 +72,8 @@ describe ScheduleMaker::Rotation do
   describe '#painscore' do
     it 'should properly compute pain score by summing squares of individual scores' do
       rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      pain = {
-        'apple'  => { score: Math.exp(1), pain: true },
-        'banana' => { score: Math.exp(2), pain: true }
-      }
-      painscore_test = rotation.painscore(false, pain)
-      painscore_answer = Math.exp(1)**2 + Math.exp(2)**2
-      expect(painscore_test).to eq(painscore_answer.to_i)
+      painscore_answer = (2 * Math.exp(1))**2 + Math.exp(1)**2 + (Math.exp(1) + Math.exp(3))**2
+      expect(rotation.painscore).to eq(painscore_answer.to_i)
     end
 
     it 'should return 0 when pain is false in all entries' do
@@ -85,7 +82,7 @@ describe ScheduleMaker::Rotation do
         'apple'  => { score: Math.exp(1), pain: false },
         'banana' => { score: Math.exp(2), pain: false }
       }
-      painscore_test = rotation.painscore(false, pain)
+      painscore_test = rotation.painscore([], {}, pain)
       expect(painscore_test).to eq(0)
     end
 
@@ -135,30 +132,6 @@ describe ScheduleMaker::Rotation do
       expect(rotation2.pain['date'][:pain]).to be false
       expect(rotation2.pain['elderberry'][:pain]).to be false
       expect(rotation2.pain['fig'][:pain]).to be true
-    end
-  end
-
-  describe '#equitable?' do
-    it 'Should return true when rotation is equitable' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      pain = {
-        'apple'  => { spacing: [-1.0, 1.0, -1.0] },
-        'banana' => { spacing: [-2.0, 0.0, 0.0] },
-        'cherry' => { spacing: [1.0, -1.0, 0.0] }
-      }
-      result = rotation.send(:equitable?, pain)
-      expect(result).to be true
-    end
-
-    it 'Should return false when rotation is not equitable' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
-      pain = {
-        'apple'  => { spacing: [-1.0, 2.0, 0.0] },
-        'banana' => { spacing: [-2.0, 0.0, 0.0] },
-        'cherry' => { spacing: [1.0, -1.0, 0.0] }
-      }
-      result = rotation.send(:equitable?, pain)
-      expect(result).to be false
     end
   end
 
@@ -266,25 +239,19 @@ describe ScheduleMaker::Rotation do
       expect(schedule.painscore).to eq(556)
     end
 
-    it 'Should iterate to known states with a known random number seed #1' do
-      srand 75
-      schedule = ScheduleMaker::Rotation.new(@rotations['small'])
+    it 'Should iterate to known states with a known random number seed' do
+      srand 42
+      schedule = ScheduleMaker::Rotation.new(@rotations['medium'])
       schedule = schedule.iterate
-      expect(schedule.painscore(true)).to eq(556)
-    end
-
-    it 'Should iterate to known states with a known random number seed #2' do
-      srand 75
-      schedule = ScheduleMaker::Rotation.new(@rotations['small'])
-      2.times { schedule = schedule.iterate }
-      expect(schedule.painscore(true)).to eq(420)
-    end
-
-    it 'Should iterate to known states with a known random number seed #3' do
-      srand 75
-      schedule = ScheduleMaker::Rotation.new(@rotations['small'])
-      3.times { schedule = schedule.iterate }
-      expect(schedule.painscore(true)).to eq(0)
+      expect(schedule.painscore).to eq(1560)
+      schedule = schedule.iterate
+      expect(schedule.painscore).to eq(240)
+      schedule = schedule.iterate
+      expect(schedule.painscore).to eq(218)
+      schedule = schedule.iterate
+      expect(schedule.painscore).to eq(212)
+      5.times { schedule = schedule.iterate }
+      expect(schedule.painscore).to eq(136)
     end
 
     # There's a theoretical possibility that this won't pass, but it's small...
@@ -292,7 +259,7 @@ describe ScheduleMaker::Rotation do
       srand Random.new_seed
       schedule = ScheduleMaker::Rotation.new(@rotations['small'])
       initial_pain_score = schedule.painscore
-      25.times { schedule = schedule.iterate }
+      15.times { schedule = schedule.iterate }
       expect(schedule.painscore).to be < initial_pain_score
     end
   end

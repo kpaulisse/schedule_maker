@@ -10,7 +10,7 @@ require 'rake'
 
 Gem::Specification.new do |s|
   s.name        = 'schedule_maker'
-  s.version     = '0.0.3'
+  s.version     = '0.0.4'
   # s.platform    = Gem::Platform::RUBY
   s.authors     = 'Kevin Paulisse'
   s.date        = Time.now.strftime('%Y-%m-%d')
@@ -26,4 +26,5 @@ Gem::Specification.new do |s|
   s.require_paths = ['lib']
 
   s.add_development_dependency 'rspec', '>= 3.0.0'
+  s.add_runtime_dependency 'tzinfo'
 end
