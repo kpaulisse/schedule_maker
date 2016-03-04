@@ -7,6 +7,7 @@
 # https://github.com/kpaulisse/schedule_maker
 
 require 'date'
+require 'tzinfo'
 
 module ScheduleMaker
   # Some static methods that are generally useful.
@@ -54,13 +55,21 @@ module ScheduleMaker
 
     # Parse date string
     # @param date_in [String] Date in the format XXXX-XX-XXTXX:XX:XX
+    # @param timezone [String] Time zone to return object in (assuming date_in is UTC)
     # @return DateTime object
-    def self.dateparse(date_in)
-      return date_in if date_in.is_a?(DateTime)
+    def self.dateparse(date_in, timezone = nil)
+      return offset_tz(date_in, timezone) if date_in.is_a?(DateTime)
       raise ArgumentError, 'Date string cannot be nil' if date_in.nil?
       raise ArgumentError, 'Date expects string' unless date_in.is_a?(String)
       raise ArgumentError, 'Date expects format XXXX-XX-XXTXX:XX:XX' unless date_in =~ /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/
-      DateTime.parse("#{date_in}+00:00")
+      offset_tz(DateTime.parse("#{date_in}+00:00"), timezone)
+    end
+
+    # Offset timezone
+    def self.offset_tz(date_in, timezone = nil)
+      return date_in if timezone.nil?
+      offset = TZInfo::Timezone.get(timezone).current_period.utc_total_offset / (24.0 * 60 * 60)
+      date_in.new_offset(offset)
     end
   end
 end

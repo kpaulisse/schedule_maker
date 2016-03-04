@@ -8,9 +8,25 @@ mixed_format:
     start: '2016-01-12T00:00:00'
   date:
     period_length: 2
-    start: '2015-01-12T00:00:00'  
+    start: '2015-01-12T00:00:00'
   elderberry: 2
   fig: 4
+
+mixed_format_with_timezones:
+  apple:
+    period_length: 1
+    timezone: 'America/New_York'
+  banana: 1
+  clementine:
+    period_length: 1
+    start: '2016-01-12T00:00:00'
+  date:
+    period_length: 2
+    start: '2015-01-12T00:00:00'
+  elderberry: 2
+  fig:
+    period_length: 4
+    timezone: 'Australia/Melbourne'
 
 simple_1:
   apple: 1
@@ -20,6 +36,10 @@ simple_2:
   apple: 2
   banana: 2
 
+simple_1_point_5:
+  apple: 1
+  banana: 2
+
 small:
   apple: 1
   banana: 1
@@ -27,6 +47,17 @@ small:
   date: 2
   elderberry: 2
   fig: 4
+
+medium:
+  apple: 1
+  banana: 1
+  clementine: 1
+  date: 1
+  elderberry: 2
+  fig: 2
+  grape: 2
+  honeydew: 3
+  ivy: 3
 
 tiny_datetest:
   apple: 1

@@ -1,15 +1,15 @@
-require_relative '../lib/schedule_maker'
+require_relative '../../lib/schedule_maker'
 require 'yaml'
 
 module ScheduleMaker
   class Spec
     def self.load_rotation
-      rotation_file = File.join(File.dirname(__FILE__), 'fixture', 'rotation.yaml')
+      rotation_file = File.join(File.expand_path('../..', __FILE__), 'fixture', 'rotation.yaml')
       YAML.load_file(rotation_file)
     end
 
     def self.load_schedule
-      rotation_file = File.join(File.dirname(__FILE__), 'fixture', 'schedule.yaml')
+      rotation_file = File.join(File.expand_path('../..', __FILE__), 'fixture', 'schedule.yaml')
       YAML.load_file(rotation_file)
     end
 

@@ -58,6 +58,7 @@ module ScheduleMaker
         result[key] = {}
         result[key][:period_length] = ScheduleMaker::Util.get_element_from_hash(p_k, :period_length, p_k)
         result[key][:start] = ScheduleMaker::Util.dateparse(ScheduleMaker::Util.get_element_from_hash(p_k, :start, start))
+        result[key][:timezone] = ScheduleMaker::Util.get_element_from_hash(p_k, :timezone, 'UTC')
       end
       result
     end

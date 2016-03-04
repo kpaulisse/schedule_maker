@@ -1,4 +1,4 @@
-require 'spec_helper'
+require_relative 'spec_helper'
 
 describe ScheduleMaker::Util do
   describe '#randomelement' do
@@ -89,6 +89,13 @@ describe ScheduleMaker::Util do
       date_obj = DateTime.new(2001, 2, 3, 4, 5, 6)
       date_str = '2001-02-03T04:05:06'
       expect(ScheduleMaker::Util.dateparse(date_str)).to eq(date_obj)
+    end
+
+    it 'Should be timezone aware' do
+      date_str = '2001-02-03T04:05:06'
+      expect(ScheduleMaker::Util.dateparse(date_str, 'UTC').hour).to eq(4)
+      expect(ScheduleMaker::Util.dateparse(date_str, 'America/Chicago').hour).to eq(22)
+      expect(ScheduleMaker::Util.dateparse(date_str, 'America/Los_Angeles').hour).to eq(20)
     end
   end
 end

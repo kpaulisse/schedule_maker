@@ -1,3 +1,5 @@
+require_relative 'spec_helper'
+
 describe ScheduleMaker::Schedule do
   describe '#new' do
     it 'Should not throw an error if a string and fixnum are provided' do
