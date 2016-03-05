@@ -1,0 +1,33 @@
+Individual stats:
+<%- @stats.sort.each do |participant, obj| -%>
+  <%= participant %>
+    <%- if obj[:min_shift] == obj[:max_shift] -%>
+    <%= obj[:shifts] %> shift(s) of duration <%= obj[:max_shift] %>
+    <%- else -%>
+    <%= obj[:shifts] %> shift(s) of duration <%= obj[:min_shift] %> to <%= obj[:max_shift] %>
+    <%- end -%>
+<% if obj.key?(:spacing) && !obj[:spacing].empty?
+  spacing = []
+  obj[:spacing].each do |space|
+    str = space.to_s
+    if space < @target_spacings[obj[:min_shift]]
+      ((@target_spacings[obj[:min_shift]] - space)/Math.sqrt(obj[:min_shift])).to_i.times { str += '*' }
+    end
+    spacing << str
+  end
+-%>
+    Spacing: <%= spacing %>
+<% end -%>
+<%-
+  days = []
+  [:sunday, :monday, :tuesday, :wednesday, :thursday, :friday, :saturday].each do |day|
+    days << "#{day.to_s.capitalize}: #{ScheduleMaker::Model::Stats.percentage(obj[day], obj[:weekend] + obj[:weekday])}"
+  end
+  summary_days = []
+  [:weekday, :weekend].each do |day|
+    summary_days << "#{day.to_s.capitalize}s: #{ScheduleMaker::Model::Stats.percentage(obj[day], obj[:weekend] + obj[:weekday])}"
+  end
+-%>
+    Days: <%= summary_days.join('; ') %>
+          (<%= days.join('; ') %>)
+<% end %>

@@ -10,6 +10,10 @@
   require File.join(File.dirname(__FILE__), 'schedule_maker', file)
 end
 
-%w(blackout spacing weekdays).each do |file|
+%w(blackout dummy spacing weekdays).each do |file|
   require File.join(File.dirname(__FILE__), 'schedule_maker', 'datamodel', file)
+end
+
+%w(stats).each do |file|
+  require File.join(File.dirname(__FILE__), 'schedule_maker', 'model', file)
 end

@@ -1,0 +1,8 @@
+Summary stats:
+  People in rotation: <%= @stats.keys.size %>
+  Days in rotation: <%= @sked.size %>
+  Duration: <%= @sked[0][:start] %> -> <%= @sked[@sked.size - 1][:end] %>
+  Optimal shift spacings:
+<% @valid_shift_lengths.sort.each do |shift_length| -%>
+    <%= shift_length %> => <%= @target_spacings[shift_length] %>
+<% end -%>

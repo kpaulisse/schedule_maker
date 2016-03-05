@@ -32,6 +32,14 @@ simple_1:
   apple: 1
   banana: 1
 
+simple_1_with_timezones:
+  apple:
+    period_length: 1
+    timezone: 'America/Chicago'
+  banana:
+    period_length: 1
+    timezone: 'Australia/Melbourne'
+    
 simple_2:
   apple: 2
   banana: 2

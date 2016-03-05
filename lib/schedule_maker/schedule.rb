@@ -6,6 +6,8 @@
 # Find the source code, report issues, and contribute at:
 # https://github.com/kpaulisse/schedule_maker
 
+require 'yaml'
+
 module ScheduleMaker
   # A ScheduleMaker::Schedule object is the externally-facing representation of a shift
   # schedule. It contains the rotation (stored in @rotation) which is essentially an Array<Period>
@@ -19,7 +21,7 @@ module ScheduleMaker
   # - @number_of_participants  Fixnum                   Number of unique participants in rotation
   # - @start                   DateTime                 Start date for schedule and rotation
   class Schedule
-    attr_reader :rotation
+    attr_reader :rotation, :start
 
     # Constructor
     # @param hash_of_names [Hash<String,Fixnum>] Participant name and shift length
@@ -34,7 +36,6 @@ module ScheduleMaker
       @start = ScheduleMaker::Util.dateparse(options.fetch(:start, ScheduleMaker::Util.midnight_today))
       @rotation = ScheduleMaker::Rotation.new(hash_of_names, count, prev_rotation, nil, start: @start)
 
-
       # Other variables
       @debug = options.fetch(:debug, false)
     end
@@ -44,32 +45,37 @@ module ScheduleMaker
     # @param options
     #    (see #to_schedule)
     # @return [Array<Hash<:start,:end,:assignee,:length>>] Resulting schedule in order
-    def as_schedule(start_date, options = {})
+    def as_schedule(start_date = @start, options = {})
       ScheduleMaker::ScheduleUtil.to_schedule(start_date, @rotation.rotation, options)
     end
 
     # Controller to run optimization and detect when an acceptable rotation is built.
     # @param max_iterations [Fixnum] Maximum iterations before giving up
     # @return [ScheduleMaker::Rotation] Optimized rotation
-    def optimize(max_iterations = @rotation.rotation_length**2, reset_try_max = 20)
+    def optimize(options_in = {})
+      options = {
+        reset_try_max: 2,
+        reset_max: [@number_of_participants, 5].max,
+        max_iterations: @rotation.rotation_length**2
+      }.merge(options_in)
+
       current_state = @rotation.dup
       current_pain = current_state.painscore
       best_state = @rotation.dup
       best_pain = current_pain
       orig_state = @rotation.dup
       orig_pain = current_pain
-      current_time = 0
-      total_time = 0
-      reset_time = 0
-      reset_tries = 0
-      reset_max = [@number_of_participants, 5].max
+      current_iter = 0
+      total_iter = 0
+      reset_counter = 0
+      reset_tries_counter = 0
       candidates = []
       candidates << best_state
 
-      while total_time < max_iterations && current_pain > 0
-        current_time += 1
-        total_time += 1
-        reset_time += 1
+      while total_iter < options[:max_iterations] && current_pain > 0
+        current_iter += 1
+        total_iter += 1
+        reset_counter += 1
 
         new_state = current_state.iterate
         new_pain = new_state.painscore
@@ -78,35 +84,34 @@ module ScheduleMaker
           puts "  Better schedule found: previous=#{best_pain} better=#{new_pain}" if @debug
           best_state = new_state.dup
           best_pain = new_pain
-          reset_tries = 0
-          reset_time = 0
-          STDERR.puts as_schedule(@start) if @debug
+          reset_tries_counter = 0
+          reset_counter = 0
         end
 
         if @debug
-          str = "Time: #{total_time}<#{max_iterations}"
-          str += "|#{reset_time}<#{reset_max}"
-          str += "|#{reset_tries}<#{reset_try_max}"
+          str = "Time: #{total_iter}<#{options[:max_iterations]}"
+          str += "|#{reset_counter}<#{options[:reset_max]}"
+          str += "|#{reset_tries_counter}<#{options[:reset_try_max]}"
           str += "; Pain=#{current_pain}|#{new_pain}|#{orig_pain}|#{best_pain}"
           STDERR.puts str
         end
 
         if new_pain <= current_pain
-          reset_time = 0 if new_pain < current_pain
+          reset_counter = 0 if new_pain < current_pain
           next if new_pain == current_pain && rand > 0.25
           current_state = new_state
           current_pain = new_pain
         end
 
-        next unless reset_time >= reset_max
-        reset_tries += 1
-        break if reset_tries >= reset_try_max
-        diff = reset_try_max - reset_tries
+        next unless reset_counter >= options[:reset_max]
+        reset_tries_counter += 1
+        break if reset_tries_counter >= options[:reset_try_max]
+        diff = options[:reset_try_max] - reset_tries_counter
         puts "  Schedule reset (#{diff} tries left): this=#{current_pain} best=#{best_pain}" if @debug
         current_state = orig_state.dup
         current_pain = current_state.painscore
-        current_time = 0
-        reset_time = 0
+        current_iter = 0
+        reset_counter = 0
       end
 
       @rotation = best_state
@@ -117,6 +122,26 @@ module ScheduleMaker
     # @return [Hash] Statistics
     def stats
       ScheduleMaker::Stats.stats(self, @start, @rotation.participants)
+    end
+
+    # Render ERB for stats
+    # @param filename [String] File name of ERB to render
+    # @param objectname [Symbol] Object to render
+    # @return [String] Rendered ERB content
+    def render_erb(filename, objectname, prefix = '')
+      obj = nil
+      obj = ScheduleMaker::Model::Stats.new(self) if objectname == :stats
+      ScheduleMaker::Util.render_erb(filename, obj, prefix)
+    end
+
+    # Render schedule as yaml. Convert symbols to keys.
+    # @return [Yaml Object] Yaml
+    def to_yaml(options = {})
+      schedule_out = as_schedule.map do |obj|
+        hsh = Hash[obj.map { |k, v| [k.to_s, v] }]
+        options.key?(:without_stats) ? hsh.select { |k, _v| %w(start end assignee length).include?(k) } : hsh
+      end
+      schedule_out.to_yaml
     end
 
     private

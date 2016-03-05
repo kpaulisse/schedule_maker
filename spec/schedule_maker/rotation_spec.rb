@@ -71,7 +71,8 @@ describe ScheduleMaker::Rotation do
 
   describe '#painscore' do
     it 'should properly compute pain score by summing squares of individual scores' do
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'])
+      pain_class = { ScheduleMaker::DataModel::Spacing.new => 1 }
+      rotation = ScheduleMaker::Rotation.new(@rotations['small'], 1, [], nil, { }, pain_class)
       painscore_answer = (2 * Math.exp(1))**2 + Math.exp(1)**2 + (Math.exp(1) + Math.exp(3))**2
       expect(rotation.painscore).to eq(painscore_answer.to_i)
     end
@@ -86,16 +87,11 @@ describe ScheduleMaker::Rotation do
       expect(painscore_test).to eq(0)
     end
 
-    it 'should return the correct pain score from a schedule override' do
-      schedule = ScheduleMaker::Spec.create_schedule(@schedules['small_1'])
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'], 1, [], schedule)
-      expect(rotation.painscore).to eq(1210)
-    end
-
     it 'should not indicate pain if nobody is assigned prior to start date' do
       dateobj = ScheduleMaker::Util.dateparse('2016-01-01T00:00:00')
       schedule = ScheduleMaker::Spec.create_schedule(@schedules['tiny_datetest_1'])
-      rotation = ScheduleMaker::Rotation.new(@rotations['tiny_datetest'], 2, [], schedule, start: dateobj)
+      pain_class = { ScheduleMaker::DataModel::Spacing.new => 1 }
+      rotation = ScheduleMaker::Rotation.new(@rotations['tiny_datetest'], 2, [], schedule, { start: dateobj }, pain_class)
       expect(rotation.pain['apple'][:pain]).to be false
       expect(rotation.pain['banana'][:pain]).to be false
       expect(rotation.pain['apple'][:score]).to eq(0)
@@ -105,7 +101,8 @@ describe ScheduleMaker::Rotation do
     it 'should indicate pain if somebody is assigned prior to start date' do
       dateobj = ScheduleMaker::Util.dateparse('2016-01-01T00:00:00')
       schedule = ScheduleMaker::Spec.create_schedule(@schedules['tiny_datetest_2'])
-      rotation = ScheduleMaker::Rotation.new(@rotations['tiny_datetest'], 2, [], schedule, start: dateobj)
+      pain_class = { ScheduleMaker::DataModel::Spacing.new => 1 }
+      rotation = ScheduleMaker::Rotation.new(@rotations['tiny_datetest'], 2, [], schedule, { start: dateobj }, pain_class)
       expect(rotation.pain['apple'][:pain]).to be false
       expect(rotation.pain['banana'][:pain]).to be true
       expect(rotation.pain['apple'][:score]).to eq(0)
@@ -233,25 +230,27 @@ describe ScheduleMaker::Rotation do
     end
   end
 
-  describe '#iterate' do
-    it 'Should return the expected pain score with a known rotation' do
-      schedule = ScheduleMaker::Rotation.new(@rotations['small'])
-      expect(schedule.painscore).to eq(556)
+  describe 'Misc_Integration_Tests' do
+    it 'Should not remove someone from the rotation just because they were not in the previous one' do
+      previous_schedule = ScheduleMaker::Spec.create_schedule(@schedules['simple_1'])
+      rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 1, previous_schedule)
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'apple')).to be true
+      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be true
     end
 
+    # This exists as an early warning to detect a change to the pain algorithm.
+    # If you know that your change *did* change the pain algorithm, paste in the
+    # correct values for the answer here.
     it 'Should iterate to known states with a known random number seed' do
+      answer = [577, 306, 271, 271, 271, 294, 283]
       srand 42
       schedule = ScheduleMaker::Rotation.new(@rotations['medium'])
-      schedule = schedule.iterate
-      expect(schedule.painscore).to eq(1560)
-      schedule = schedule.iterate
-      expect(schedule.painscore).to eq(240)
-      schedule = schedule.iterate
-      expect(schedule.painscore).to eq(218)
-      schedule = schedule.iterate
-      expect(schedule.painscore).to eq(212)
-      5.times { schedule = schedule.iterate }
-      expect(schedule.painscore).to eq(136)
+      result = []
+      7.times do
+        schedule = schedule.iterate
+        result << schedule.painscore
+      end
+      expect(result).to eq(answer)
     end
 
     # There's a theoretical possibility that this won't pass, but it's small...
@@ -261,15 +260,6 @@ describe ScheduleMaker::Rotation do
       initial_pain_score = schedule.painscore
       15.times { schedule = schedule.iterate }
       expect(schedule.painscore).to be < initial_pain_score
-    end
-  end
-
-  describe 'Misc_Integration_Tests' do
-    it 'Should not remove someone from the rotation just because they were not in the previous one' do
-      previous_schedule = ScheduleMaker::Spec.create_schedule(@schedules['simple_1'])
-      rotation = ScheduleMaker::Rotation.new(@rotations['mixed_format'], 1, previous_schedule)
-      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'apple')).to be true
-      expect(ScheduleMaker::Spec.include_shift_for(rotation.rotation, 'clementine')).to be true
     end
 
     it 'Should handle start dates during the 2nd shift with previous schedule' do
