@@ -14,10 +14,10 @@ module ScheduleMaker
     # @param schedule [ScheduleMaker::Schedule] Computed schedule
     # @param start [DateTime] Start date/time for schedule
     # @param participants [Hash] Participants hash (for time zone calculations)
-    def self.stats(schedule, start, participants = {})
+    def self.stats(schedule, start, participants = {}, sked = nil)
       stats = {}
       last_assignee = nil
-      sked = schedule.as_schedule(start)
+      sked ||= schedule.as_schedule(start)
 
       timezones = {}
       participants.each do |key, val|
@@ -36,7 +36,7 @@ module ScheduleMaker
         end_time = ScheduleMaker::Util.dateparse(obj[:end], timezone)
         weekdays_seen = {}
         0.upto((24 * (end_time - start_time).to_f).to_i - 1) do |index|
-          wday = (start_time + index * (1/24.0) + 0.00000001).wday
+          wday = (start_time + index * (1 / 24.0) + 0.00000001).wday
           weekdays_seen[wday] ||= 0
           weekdays_seen[wday] += 1
         end

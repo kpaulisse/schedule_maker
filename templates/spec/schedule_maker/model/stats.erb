@@ -1,0 +1,7 @@
+<%- @stats.sort.each do |participant, obj| -%>
+## <%= participant %>: <%= obj[:days] %>, <%= obj[:spacing].join(';') %>, <%= obj[:weekday] %> ##
+<%- end -%>
+## target_spacings: <%= @target_spacings.keys.sort.join(',') %> ##
+## valid_shift_lengths: <%= @valid_shift_lengths.sort.join(',') %> ##
+## sked_size: <%= @sked.size %> ##
+## sked: <%= @sked[0][:start] %>; <%= @sked[0][:end] %>; <%= @sked[0][:assignee] %> ##

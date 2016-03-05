@@ -20,7 +20,8 @@ module ScheduleMaker
   # - @participants    Hash          Keys are participant names; value is a hash with properties
   # - @prev_rotation   Hash          Tracking when people last had a shift in a prior rotation
   class Rotation
-    attr_reader :period_lcm, :rotation_length, :rotation, :participants, :target_spacing, :prev_rotation, :start, :day_length
+    attr_reader :period_lcm, :rotation_length, :rotation, :participants, :target_spacing
+    attr_reader :prev_rotation, :start, :day_length, :count, :violations, :default_pain_classes
 
     # Constructor
     #
@@ -31,7 +32,7 @@ module ScheduleMaker
     # @param options
     #   - :start      => DateTime object representing start date of this period
     #   - :day_length => Float representing the length of a "day" (1.0 is normal)
-    def initialize(participants, count = 1, prev_rotation = [], init_sched = nil, options = {})
+    def initialize(participants, count = 1, prev_rotation = [], init_sched = nil, options = {}, pain_classes = nil)
       raise ArgumentError, 'Participants argument must be a hash' unless participants.is_a?(Hash)
       raise ArgumentError, 'Participants hash cannot be empty' if participants.empty?
       raise ArgumentError, 'Count must be an integer' unless count.is_a?(Fixnum)
@@ -46,9 +47,16 @@ module ScheduleMaker
       @rotation_length = ScheduleMaker::RotationUtil.calculate_rotation_length(@rotation)
       @prev_rotation = ScheduleMaker::RotationUtil.build_prev_rotation_hash(prev_rotation)
       @prev_rotation_save = prev_rotation
-      @default_pain_classes = { ScheduleMaker::DataModel::Spacing.new => 1 }
-      @default_pain_options = {}
+      if pain_classes.nil?
+        @default_pain_classes = {
+          ScheduleMaker::DataModel::Spacing.new => 1,
+          ScheduleMaker::DataModel::Weekdays.new => 1
+        }
+      else
+        @default_pain_classes = pain_classes
+      end
       @pain_override = nil
+      @violations = {}
     end
 
     def inspect
@@ -60,7 +68,7 @@ module ScheduleMaker
         start: @start,
         day_length: @day_length
       }
-      ScheduleMaker::Rotation.new(@participants, @count, @prev_rotation_save, @rotation.dup, options)
+      ScheduleMaker::Rotation.new(@participants, @count, @prev_rotation_save, @rotation.dup, options, @default_pain_classes)
     end
 
     # Causes one iteration upon the rotation. An iteration is ordering the users by their current pain
@@ -72,13 +80,13 @@ module ScheduleMaker
     # it to a local minimum.
     # @return [ScheduleMaker::Rotation] The iterated object
     def iterate
-      samples_1 = Array (0 .. @rotation.size-1 ).to_a.shuffle
-      old_score = self.painscore
+      samples_1 = Array (0..@rotation.size - 1).to_a.sample(26)
+      old_score = painscore
       until samples_1.empty?
         index_1 = samples_1.shift
-        samples_2 = Array (0 .. @rotation.size-1 ).to_a.shuffle[0..25]
+        samples_2 = Array (0..@rotation.size - 1).to_a.shuffle
         until samples_2.empty?
-          trial = self.dup
+          trial = dup
           index_2 = samples_2.shift
           if !samples_2.empty? && rand > 0.9
             index_3 = samples_2.shift
@@ -106,27 +114,32 @@ module ScheduleMaker
     end
 
     # Get the "pain" array
-    def pain(classes = @default_pain_classes, options = @default_pain_options)
+    def pain(classes = @default_pain_classes)
       return @pain_override unless @pain_override.nil? # For testing mostly
       result = {}
       classes.each do |obj, weight|
-        x_pain = obj.pain(self, options)
+        x_pain = obj.pain(self)
         x_pain.each do |key, val|
-          result[key] ||= { :pain => false, :score => 0 }
-          result[key][:score] += weight * val[:score]
-          result[key][:pain] = true if val[:pain]
+          result[key] ||= { pain: false, score: 0 }
+          result[key][:score] += weight * val[:score] if val.key?(:score)
+          result[key][:pain] = true if val.key?(:pain) && val[:pain]
         end
       end
       result
     end
 
     # Test if rotation is valid
-    def is_valid?(options = {}, classes = @default_pain_classes)
+    def valid?(options = {}, classes = @default_pain_classes)
       classes.keys.each do |obj|
         opts = options.key?(obj.class.to_s) ? options[obj.class.to_s] : nil
-        return false unless obj.is_valid?(self, opts)
+        return false unless obj.valid?(self, opts)
       end
       true
+    end
+
+    # Set violations
+    def set_violations(source_class, violations)
+      @violations[source_class] = violations
     end
 
     # Calculates the "pain score" of this rotation
@@ -134,12 +147,12 @@ module ScheduleMaker
     # @param options [Hash] Options
     # @param pain [Hash] Use this pain hash instead of re-calculating
     # @return [Fixnum] Calculated pain score
-    def painscore(classes = @default_pain_classes, options = @default_pain_options, pain_in = nil)
-      x_pain = pain_in.nil? ? pain(classes, options) : pain_in
+    def painscore(classes = @default_pain_classes, options = {}, pain_in = nil)
+      x_pain = pain_in.nil? ? pain(classes) : pain_in
       result = 0
       pain_multiplier = 0
       x_pain.values.each do |val|
-        result += val[:score] ** 2
+        result += val[:score]**2
         pain_multiplier = 1 if val[:pain]
       end
       (result * pain_multiplier).to_i

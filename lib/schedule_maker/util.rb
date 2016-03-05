@@ -7,6 +7,7 @@
 # https://github.com/kpaulisse/schedule_maker
 
 require 'date'
+require 'erb'
 require 'tzinfo'
 
 module ScheduleMaker
@@ -70,6 +71,56 @@ module ScheduleMaker
       return date_in if timezone.nil?
       offset = TZInfo::Timezone.get(timezone).current_period.utc_total_offset / (24.0 * 60 * 60)
       date_in.new_offset(offset)
+    end
+
+    # Render ERB
+    # @param filename [String] Filename (minus .erb extension) in the ERB templates directory
+    # @param obj [Object] Object to use when rendering ERB
+    # @param prefix [String] Optional prefix for each rendered line (useful to comment stuff out)
+    def self.render_erb(filename, obj, prefix = '')
+      template_dir = File.join(File.expand_path('../../..', __FILE__), 'templates')
+      raise "Bad ERB template directory (#{template_dir})" unless File.directory?(template_dir)
+      file_path = File.join(template_dir, filename + '.erb')
+      raise "Bad ERB template filename (#{file_path})" unless File.file?(file_path)
+      text = ERB.new(File.read(file_path), nil, '-').result(obj.getbinding)
+      return text if prefix.empty?
+      text.split("\n").map { |line| prefix + line + "\n" }.join('')
+    end
+
+    # Load a rotation from a YAML file
+    # @param filepath [String] Full path to file to load
+    # @param valid_shift_lengths [Array<Fixnum>] Valid shift lengths to validate
+    # @return [Hash] An array of participants
+    def self.load_rotation_from_yaml(filepath, valid_shift_lengths = [])
+      rotation = {}
+      participants = YAML.load_file(filepath)
+      participants.keys.each do |participant|
+        participant_value = participants[participant]
+        if participant_value.is_a?(Fixnum)
+          unless valid_shift_lengths.empty? || valid_shift_lengths.include?(participant_value)
+            raise "Invalid shift length '#{participant_value}' for #{participant}"
+          end
+          rotation[participant] = { 'period_length' => participant_value }
+        elsif participant_value.is_a?(Hash)
+          raise "Configuration for #{participant} missing period_length" unless participant_value.key?('period_length')
+          period_length = participant_value['period_length']
+          unless valid_shift_lengths.empty? || valid_shift_lengths.include?(period_length)
+            raise "Invalid shift length '#{period_length}' for #{participant}"
+          end
+          rotation[participant] = { 'period_length' => period_length }
+          if participant_value.key?('start')
+            raise "Please quote the start time for #{participant}" unless participant_value['start'].is_a?(String)
+            rotation[participant]['start'] = ScheduleMaker::Util.dateparse(participant_value['start'])
+          end
+          if participant_value.key?('timezone')
+            raise "Please quote the timezone for #{participant}" unless participant_value['timezone'].is_a?(String)
+            rotation[participant]['timezone'] = participant_value['timezone']
+          end
+        else
+          raise "Invalid entry for #{participant} (#{participant_value.class})"
+        end
+      end
+      rotation
     end
   end
 end
