@@ -1,0 +1,19 @@
+# Rule set for ScheduleMaker defining standard spacing
+# ---------------------
+# Note that all rule sets must conform to the following:
+# - All hash keys are !ruby/symbol
+# - The content of each hash key varies by data model
+
+'ScheduleMaker::DataModel::Spacing':
+  !ruby/symbol max: 15
+  !ruby/symbol threshold:
+    1:
+      !ruby/symbol weight: 0.75
+    2:
+      !ruby/symbol weight: 2
+      !ruby/symbol max_count: 4
+      !ruby/symbol max_percent: 0.5
+      !ruby/symbol max_percent_cutoff: 3
+    3:
+      !ruby/symbol weight: 2
+      !ruby/symbol max_count: 2
