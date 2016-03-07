@@ -1,5 +1,7 @@
 # schedule_maker
 
+[![Build Status](https://travis-ci.org/kpaulisse/schedule_maker.svg?branch=master)](https://travis-ci.org/kpaulisse/schedule_maker)
+
 This gem helps you create a schedule with varying shift lengths. Each participant is assigned to the same total number of days within the schedule, and an individual's shifts are spaced out as much as possible. This gem is particularly useful to allow participants to select different shift lengths.
 
 ## Overview
