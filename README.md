@@ -4,6 +4,8 @@
 
 This gem helps you create a schedule with varying shift lengths. Each participant is assigned to the same total number of days within the schedule, and an individual's shifts are spaced out as much as possible. This gem is particularly useful to allow participants to select different shift lengths.
 
+Requires Ruby >= 2.1
+
 ## Overview
 
 The resulting schedule will always have these properties:
