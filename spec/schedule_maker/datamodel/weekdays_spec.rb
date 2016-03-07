@@ -29,7 +29,6 @@ describe ScheduleMaker::DataModel::Weekdays do
     it 'Should calculate the week day for a particular hour' do
       the_date = @testobj.cached_date(@start)
       result = @testobj.cached_hour(the_date)
-      start_integer = @start.strftime('%s')
       expect(result).to eq(:friday)
       expect(@testobj.hour_cache[@start]['UTC']).to eq(:friday)
     end
@@ -47,9 +46,9 @@ describe ScheduleMaker::DataModel::Weekdays do
       start_time = @testobj.cached_date(@start)
       end_time = @testobj.cached_date(@start + 5)
       answer = {
-        :sunday => 24, :monday => 24, :tuesday => 24, :wednesday => 0,
-        :thursday => 0, :friday => 24, :saturday => 24,
-        :weekend => 48, :weekday => 72
+        sunday: 24, monday: 24, tuesday: 24, wednesday: 0,
+        thursday: 0, friday: 24, saturday: 24,
+        weekend: 48, weekday: 72
       }
       result = @testobj.get_hours(start_time, end_time)
       expect(result).to eq(answer)
@@ -59,9 +58,9 @@ describe ScheduleMaker::DataModel::Weekdays do
       start_time = @testobj.cached_date(@start, 'America/Chicago')
       end_time = @testobj.cached_date(@start + 5, 'America/Chicago')
       answer = {
-        :sunday => 24, :monday => 24, :tuesday => 18, :wednesday => 0,
-        :thursday => 6, :friday => 24, :saturday => 24,
-        :weekend => 48, :weekday => 72
+        sunday: 24, monday: 24, tuesday: 18, wednesday: 0,
+        thursday: 6, friday: 24, saturday: 24,
+        weekend: 48, weekday: 72
       }
       result = @testobj.get_hours(start_time, end_time, 'America/Chicago')
       expect(result).to eq(answer)
@@ -73,19 +72,19 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = {}
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.pain(rotation)
       expect(result['apple'][:skipped]).to be true
     end
 
     it 'Should compute pain array correctly' do
       ruleset = {
-        :weekend => { penalty: 10, max_percent: 0.8, max_percent_cutoff: 4 },
-        :weekday => { penalty: 0, max_percent: 1.1, max_percent_cutoff: 10 }
+        weekend: { penalty: 10, max_percent: 0.8, max_percent_cutoff: 4 },
+        weekday: { penalty: 0, max_percent: 1.1, max_percent_cutoff: 10 }
       }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.pain(rotation)
       expect(result['apple'][:sunday]).to eq(24)
       expect(result['apple'][:monday]).to eq(0)
@@ -104,12 +103,12 @@ describe ScheduleMaker::DataModel::Weekdays do
 
     it 'Should compute pain array correctly in another time zone' do
       ruleset = {
-        :weekend => { penalty: 10, max_percent: 0.8, max_percent_cutoff: 4 },
-        :weekday => { penalty: 0, max_percent: 1.1, max_percent_cutoff: 10 }
+        weekend: { penalty: 10, max_percent: 0.8, max_percent_cutoff: 4 },
+        weekday: { penalty: 0, max_percent: 1.1, max_percent_cutoff: 10 }
       }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1_with_timezones'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1_with_timezones'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.pain(rotation)
       expect(result['apple'][:sunday]).to eq(18)
       expect(result['apple'][:saturday]).to eq(6)
@@ -136,7 +135,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = {}
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       expect(testobj.valid?(rotation)).to be true
     end
 
@@ -144,7 +143,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = { weekend: { penalty: 10, max_percent: 0.4 } }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.valid?(rotation)
       expect(result).to be false
     end
@@ -153,7 +152,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = { weekend: { penalty: 10, max_percent: 0.4, max_percent_cutoff: 1 } }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.valid?(rotation)
       expect(result).to be false
     end
@@ -162,7 +161,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = { weekend: { penalty: 10, max_percent: 0.4, max_percent_cutoff: 4 } }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.valid?(rotation)
       expect(result).to be true
     end
@@ -171,7 +170,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = { weekend: { penalty: 10, max_percent: 0.7 } }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.valid?(rotation)
       expect(result).to be true
     end
@@ -180,7 +179,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = { weekend: { max_percent: -1 }, weekday: { max_percent: 2 } }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.valid?(rotation)
       expect(result).to be false
     end
@@ -189,7 +188,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = { weekend: { max_percent: 2 }, weekday: { max_percent: 2 } }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.valid?(rotation)
       expect(result).to be true
     end
@@ -198,7 +197,7 @@ describe ScheduleMaker::DataModel::Weekdays do
       ruleset = { weekend: { max_percent: -1 }, weekday: { max_percent: -1 } }
       testobj = @testobj.dup
       testobj.apply_ruleset(ruleset)
-      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, {start: @start}, @pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['simple_1'], 2, [], nil, { start: @start }, @pain_class)
       result = testobj.valid?(rotation)
       expect(result).to be false
     end

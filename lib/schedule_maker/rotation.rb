@@ -147,7 +147,7 @@ module ScheduleMaker
     # @param options [Hash] Options
     # @param pain [Hash] Use this pain hash instead of re-calculating
     # @return [Fixnum] Calculated pain score
-    def painscore(classes = @default_pain_classes, options = {}, pain_in = nil)
+    def painscore(classes = @default_pain_classes, _options = {}, pain_in = nil)
       x_pain = pain_in.nil? ? pain(classes) : pain_in
       result = 0
       pain_multiplier = 0
