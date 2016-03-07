@@ -17,9 +17,11 @@ class String
   def red
     "\e[1m\e[31m" + self + "\e[0m"
   end
+
   def green
     "\e[1m\e[32m" + self + "\e[0m"
   end
+
   def white
     "\e[1m\e[37m" + self + "\e[0m"
   end
@@ -36,14 +38,14 @@ def valid?(schedule, ruleset, options)
   puts "- Validating schedule beginning #{start_str}...".white
   result = schedule.rotation.valid?(ruleset)
   return true if result
-  puts "- Violation(s) detected".red
+  puts '- Violation(s) detected'.red
   puts schedule.rotation.violations.map { |x| "   #{x.inspect}".blue }.join("\n")
   false
 end
 
 # Main program flow
 def main(options)
-  raise "Error: Missing option '-c <rotation_file>'; please see #{File.basename(__FILE__) } --help" if options[:rotation].nil?
+  raise "Error: Missing option '-c <rotation_file>'; please see #{File.basename(__FILE__)} --help" if options[:rotation].nil?
   rotation = ScheduleMaker::Util.load_rotation_from_yaml(options[:rotation], options[:valid_shift_lengths])
   schedule = nil
   until valid?(schedule, options[:ruleset], options)
@@ -51,9 +53,9 @@ def main(options)
     puts "- Building schedule beginning #{start_str}...".white
     schedule = ScheduleMaker::Schedule.new(rotation, options)
     schedule.optimize(
-      :max_iterations => schedule.rotation.rotation_length * schedule.rotation.participants.keys.size,
-      :reset_try_max => options[:optimize_passes],
-      :reset_max => schedule.rotation.participants.keys.size + 5
+      max_iterations: schedule.rotation.rotation_length * schedule.rotation.participants.keys.size,
+      reset_try_max: options[:optimize_passes],
+      reset_max: schedule.rotation.participants.keys.size + 5
     )
   end
 
@@ -61,11 +63,11 @@ def main(options)
     puts "- Schedule being written to #{options[:output_file]}".green
     $stdout.reopen(options[:output_file], 'w')
   else
-    puts "- Schedule generation succeeded! Here it is:".green
+    puts '- Schedule generation succeeded! Here it is:'.green
   end
   puts schedule.render_erb('stats/summary_stats', :stats, '# ')
   puts schedule.render_erb('stats/individual_stats', :stats, '# ')
-  puts schedule.to_yaml(:without_stats => true)
+  puts schedule.to_yaml(without_stats: true)
 end
 
 options = {
@@ -76,7 +78,7 @@ options = {
   optimize_passes: 1,
   validation: true,
   output_file: nil,
-  valid_shift_lengths: [ 1, 2, 4 ],
+  valid_shift_lengths: [1, 2, 4],
   ruleset: YAML.load_file(File.join(File.expand_path('../rulesets', File.dirname(__FILE__)), 'standard-spacing-algorithm.yaml'))
 }
 

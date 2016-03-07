@@ -227,6 +227,5 @@ describe ScheduleMaker::DataModel::Spacing do
       obj.apply_ruleset(ruleset)
       expect(obj.valid?(rotation)).to be false
     end
-
   end
 end

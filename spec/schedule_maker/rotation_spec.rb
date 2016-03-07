@@ -72,7 +72,7 @@ describe ScheduleMaker::Rotation do
   describe '#painscore' do
     it 'should properly compute pain score by summing squares of individual scores' do
       pain_class = { ScheduleMaker::DataModel::Spacing.new => 1 }
-      rotation = ScheduleMaker::Rotation.new(@rotations['small'], 1, [], nil, { }, pain_class)
+      rotation = ScheduleMaker::Rotation.new(@rotations['small'], 1, [], nil, {}, pain_class)
       painscore_answer = (2 * Math.exp(1))**2 + Math.exp(1)**2 + (Math.exp(1) + Math.exp(3))**2
       expect(rotation.painscore).to eq(painscore_answer.to_i)
     end

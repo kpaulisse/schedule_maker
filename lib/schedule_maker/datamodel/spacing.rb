@@ -142,7 +142,7 @@ module ScheduleMaker
           # how badly this spacing missed the target, with more stars = more pain. Calculate the
           # number of "stars" for each spacing.
           period_length = rotation.participants[participant][:period_length]
-          val[:stars] = val[:spacing].map { |k| k > 0 ? ((1.0 * k)/(1.0 * Math.sqrt(period_length))).ceil : 0 }
+          val[:stars] = val[:spacing].map { |k| k > 0 ? ((1.0 * k) / (1.0 * Math.sqrt(period_length))).ceil : 0 }
 
           # For each item in the threshold, calculate the % of spacings that have that many stars.
           counts = Hash.new(0)
@@ -192,12 +192,11 @@ module ScheduleMaker
           end
 
           # Cumulative score
-          if @ruleset.key?(:max) && score >= @ruleset[:max]
-            violations << {
-              participant: participant,
-              error: "Overall Score=#{score} >= Threshold=#{@ruleset[:max]} #{val[:stars].inspect}"
-            }
-          end
+          next unless @ruleset.key?(:max) && score >= @ruleset[:max]
+          violations << {
+            participant: participant,
+            error: "Overall Score=#{score} >= Threshold=#{@ruleset[:max]} #{val[:stars].inspect}"
+          }
         end
         rotation.set_violations(self.class.to_s, violations)
         violations.empty?
