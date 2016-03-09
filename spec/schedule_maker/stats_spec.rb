@@ -44,48 +44,56 @@ describe ScheduleMaker::Stats do
       expect(@stats['fig'][:spacing]).to eq([])
     end
 
-    it 'Should compute week days correctly with no timezone' do
-      expect(@stats['apple'][:sunday]).to eq(0)
-      expect(@stats['apple'][:monday]).to eq(0)
-      expect(@stats['apple'][:tuesday]).to eq(24)
-      expect(@stats['apple'][:wednesday]).to eq(24)
-      expect(@stats['apple'][:thursday]).to eq(0)
-      expect(@stats['apple'][:friday]).to eq(48)
-      expect(@stats['apple'][:saturday]).to eq(0)
-      expect(@stats['apple'][:weekend]).to eq(0)
-      expect(@stats['apple'][:weekday]).to eq(96)
-      expect(@stats['fig'][:sunday]).to eq(24)
-      expect(@stats['fig'][:monday]).to eq(24)
-      expect(@stats['fig'][:tuesday]).to eq(24)
-      expect(@stats['fig'][:wednesday]).to eq(0)
-      expect(@stats['fig'][:thursday]).to eq(0)
-      expect(@stats['fig'][:friday]).to eq(0)
-      expect(@stats['fig'][:saturday]).to eq(24)
-      expect(@stats['fig'][:weekend]).to eq(48)
-      expect(@stats['fig'][:weekday]).to eq(48)
+    it 'Should compute days correctly with no timezone offset' do
+      sparse_schedule = [
+        { start: '2016-04-17T00:00:00+00:00', end: '2016-04-18T00:00:00+00:00', length: 1, assignee: 'bob' }, # Sunday
+        { start: '2016-04-29T00:00:00+00:00', end: '2016-04-30T00:00:00+00:00', length: 1, assignee: 'bob' }, # Friday
+        { start: '2016-05-14T00:00:00+00:00', end: '2016-05-15T00:00:00+00:00', length: 1, assignee: 'bob' }, # Saturday
+        { start: '2016-05-28T00:00:00+00:00', end: '2016-05-29T00:00:00+00:00', length: 1, assignee: 'bob' }, # Saturday
+        { start: '2016-06-13T00:00:00+00:00', end: '2016-06-14T00:00:00+00:00', length: 1, assignee: 'bob' }, # Monday
+        { start: '2016-06-27T00:00:00+00:00', end: '2016-06-28T00:00:00+00:00', length: 1, assignee: 'bob' }, # Monday
+        { start: '2016-07-10T00:00:00+00:00', end: '2016-07-11T00:00:00+00:00', length: 1, assignee: 'bob' }, # Sunday
+        { start: '2016-07-25T00:00:00+00:00', end: '2016-07-26T00:00:00+00:00', length: 1, assignee: 'bob' } # Monday
+      ]
+      participants = { 'bob' => { 'period_length' => 1 } }
+      date = ScheduleMaker::Util.dateparse('2016-04-13T00:00:00')
+      schedule = ScheduleMaker::Spec.sparse_schedule(sparse_schedule, date, participants: participants)
+      stats = ScheduleMaker::Stats.stats(schedule, date)
+      expect(stats['bob'][:sunday]).to eq(48)
+      expect(stats['bob'][:monday]).to eq(72)
+      expect(stats['bob'][:tuesday]).to eq(0)
+      expect(stats['bob'][:wednesday]).to eq(0)
+      expect(stats['bob'][:thursday]).to eq(0)
+      expect(stats['bob'][:friday]).to eq(24)
+      expect(stats['bob'][:saturday]).to eq(48)
+      expect(stats['bob'][:weekday]).to eq(96)
+      expect(stats['bob'][:weekend]).to eq(96)
     end
 
-    it 'Should compute week days correctly with timezone' do
-      schedule = ScheduleMaker::Schedule.new(@rotations['mixed_format_with_timezones'], start: @start, rotation_count: 1)
-      stats = ScheduleMaker::Stats.stats(schedule, @start, schedule.rotation.participants)
-      expect(stats['apple'][:sunday]).to eq(0)
-      expect(stats['apple'][:monday]).to eq(5)
-      expect(stats['apple'][:tuesday]).to eq(24)
-      expect(stats['apple'][:wednesday]).to eq(19)
-      expect(stats['apple'][:thursday]).to eq(10)
-      expect(stats['apple'][:friday]).to eq(38)
-      expect(stats['apple'][:saturday]).to eq(0)
-      expect(stats['apple'][:weekend]).to eq(0)
-      expect(stats['apple'][:weekday]).to eq(96)
-      expect(stats['fig'][:sunday]).to eq(24)
-      expect(stats['fig'][:monday]).to eq(24)
-      expect(stats['fig'][:tuesday]).to eq(24)
-      expect(stats['fig'][:wednesday]).to eq(11)
-      expect(stats['fig'][:thursday]).to eq(0)
-      expect(stats['fig'][:friday]).to eq(0)
-      expect(stats['fig'][:saturday]).to eq(13)
-      expect(stats['fig'][:weekend]).to eq(37)
-      expect(stats['fig'][:weekday]).to eq(59)
+    it 'Should compute days correctly with timezone offset' do
+      sparse_schedule = [
+        { start: '2016-04-17T00:00:00+00:00', end: '2016-04-18T00:00:00+00:00', length: 1, assignee: 'bob' }, # Sat->Sun
+        { start: '2016-04-29T00:00:00+00:00', end: '2016-04-30T00:00:00+00:00', length: 1, assignee: 'bob' }, # Thu->Fri
+        { start: '2016-05-14T00:00:00+00:00', end: '2016-05-15T00:00:00+00:00', length: 1, assignee: 'bob' }, # Fri->Sat
+        { start: '2016-05-28T00:00:00+00:00', end: '2016-05-29T00:00:00+00:00', length: 1, assignee: 'bob' }, # Fri->Sat
+        { start: '2016-06-13T00:00:00+00:00', end: '2016-06-14T00:00:00+00:00', length: 1, assignee: 'bob' }, # Sun->Mon
+        { start: '2016-06-27T00:00:00+00:00', end: '2016-06-28T00:00:00+00:00', length: 1, assignee: 'bob' }, # Sun->Mon
+        { start: '2016-07-10T00:00:00+00:00', end: '2016-07-11T00:00:00+00:00', length: 1, assignee: 'bob' }, # Sat->Sun
+        { start: '2016-07-25T00:00:00+00:00', end: '2016-07-26T00:00:00+00:00', length: 1, assignee: 'bob' }  # Sun->Mon
+      ]
+      participants = { 'bob' => { 'period_length' => 1, 'timezone' => 'America/Chicago' } }
+      date = ScheduleMaker::Util.dateparse('2016-04-13T00:00:00')
+      schedule = ScheduleMaker::Spec.sparse_schedule(sparse_schedule, date, participants: participants)
+      stats = ScheduleMaker::Stats.stats(schedule, date)
+      expect(stats['bob'][:sunday]).to eq(19*2 + 5*3)
+      expect(stats['bob'][:monday]).to eq(19*3)
+      expect(stats['bob'][:tuesday]).to eq(0)
+      expect(stats['bob'][:wednesday]).to eq(0)
+      expect(stats['bob'][:thursday]).to eq(5)
+      expect(stats['bob'][:friday]).to eq(19*1 + 5*2)
+      expect(stats['bob'][:saturday]).to eq(19*2 + 5*2)
+      expect(stats['bob'][:weekday]).to eq(91)
+      expect(stats['bob'][:weekend]).to eq(101)
     end
   end
 end

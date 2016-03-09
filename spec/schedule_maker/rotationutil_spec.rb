@@ -66,7 +66,7 @@ describe ScheduleMaker::RotationUtil do
     it 'Should calculate correct percentages for 1 shift with someone missing entire shift' do
       start = ScheduleMaker::Util.dateparse('2015-11-01T00:00:00')
       participants = ScheduleMaker::RotationUtil.prepare_participants(@rotations['mixed_format'], start)
-      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 1.0, 1)
+      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 86400.0, 1)
       expect(result['apple']).to eq(4)      # No start date specified
       expect(result['clementine']).to eq(0) # Start date is after shift ends
       expect(result['date']).to eq(2)       # Start date is before shift starts; 2 day shifts
@@ -75,7 +75,7 @@ describe ScheduleMaker::RotationUtil do
     it 'Should calculate correct percentages for 2 shifts with someone missing entire shift' do
       start = ScheduleMaker::Util.dateparse('2015-06-01T00:00:00')
       participants = ScheduleMaker::RotationUtil.prepare_participants(@rotations['mixed_format'], start)
-      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 1.0, 2)
+      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 86400.0, 2)
       expect(result['apple']).to eq(8)      # No start date specified
       expect(result['clementine']).to eq(0) # Start date is after shift ends
       expect(result['date']).to eq(4)       # Start date is before shift starts; 2 day shifts
@@ -84,7 +84,7 @@ describe ScheduleMaker::RotationUtil do
     it 'Should calculate correct percentages for 1 shift with partial miss' do
       start = ScheduleMaker::Util.dateparse('2014-12-31T00:00:00')
       participants = ScheduleMaker::RotationUtil.prepare_participants(@rotations['mixed_format'], start)
-      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 1.0, 1)
+      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 86400.0, 1)
       expect(result['clementine']).to eq(0) # Start date is after shift ends
       expect(result['date']).to eq(1)       # Start date is half way through shift; 2 day shifts
     end
@@ -92,7 +92,7 @@ describe ScheduleMaker::RotationUtil do
     it 'Should calculate correct percentages for 2 shifts with partial miss' do
       start = ScheduleMaker::Util.dateparse('2014-12-31T00:00:00')
       participants = ScheduleMaker::RotationUtil.prepare_participants(@rotations['mixed_format'], start)
-      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 1.0, 2)
+      result = ScheduleMaker::RotationUtil.calculate_shifts(participants, 4, start, 86400.0, 2)
       expect(result['clementine']).to eq(0) # Start date is after shift ends
       expect(result['date']).to eq(3)       # Start date is 1/4 of the way through shift; 2 day shifts
     end

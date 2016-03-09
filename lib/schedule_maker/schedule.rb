@@ -31,10 +31,20 @@ module ScheduleMaker
       @number_of_participants = hash_of_names.keys.size
 
       # Calculate desired rotation period spacing and total length
-      count = options.fetch(:rotation_count, 1)
-      prev_rotation = options.fetch(:prev_rotation, [])
       @start = ScheduleMaker::Util.dateparse(options.fetch(:start, ScheduleMaker::Util.midnight_today))
-      @rotation = ScheduleMaker::Rotation.new(hash_of_names, count, prev_rotation, nil, start: @start)
+
+      # Get the rotation
+      @rotation = if options.key?(:rotation) && !options[:rotation].nil?
+                    options[:rotation]
+                  else
+                    rotation_options = {
+                      count: options.fetch(:rotation_count, 1),
+                      prev_rotation: options.fetch(:prev_rotation, []),
+                      start: @start
+                    }
+                    rotation_options[:ruleset] = options[:ruleset] if options.key?(:ruleset)
+                    ScheduleMaker::Rotation.new(hash_of_names, rotation_options)
+                  end
 
       # Other variables
       @debug = options.fetch(:debug, false)
@@ -47,6 +57,15 @@ module ScheduleMaker
     # @return [Array<Hash<:start,:end,:assignee,:length>>] Resulting schedule in order
     def as_schedule(start_date = @start, options = {})
       ScheduleMaker::ScheduleUtil.to_schedule(start_date, @rotation.rotation, options)
+    end
+
+    # Print a debugging string
+    def print_debugging_string(options, inputs)
+      str = "Time: #{inputs[:total_iter]}<#{options[:max_iterations]}"
+      str += "|#{inputs[:reset_counter]}<#{options[:reset_max]}"
+      str += "|#{inputs[:reset_tries_counter]}<#{options[:reset_try_max]}"
+      str += "; Pain=#{inputs[:current_pain]}|#{inputs[:new_pain]}|#{inputs[:orig_pain]}|#{inputs[:best_pain]}"
+      STDERR.puts str
     end
 
     # Controller to run optimization and detect when an acceptable rotation is built.
@@ -89,11 +108,16 @@ module ScheduleMaker
         end
 
         if @debug
-          str = "Time: #{total_iter}<#{options[:max_iterations]}"
-          str += "|#{reset_counter}<#{options[:reset_max]}"
-          str += "|#{reset_tries_counter}<#{options[:reset_try_max]}"
-          str += "; Pain=#{current_pain}|#{new_pain}|#{orig_pain}|#{best_pain}"
-          STDERR.puts str
+          inputs = {
+            total_iter: total_iter,
+            reset_counter: reset_counter,
+            reset_tries_counter: reset_tries_counter,
+            current_pain: current_pain,
+            new_pain: new_pain,
+            orig_pain: orig_pain,
+            best_pain: best_pain
+          }
+          print_debugging_string(options, inputs)
         end
 
         if new_pain <= current_pain
@@ -137,9 +161,9 @@ module ScheduleMaker
     # Render schedule as yaml. Convert symbols to keys.
     # @return [Yaml Object] Yaml
     def to_yaml(options = {})
-      schedule_out = as_schedule.map do |obj|
+      schedule_out = as_schedule(@start, participants: @rotation.participants).map do |obj|
         hsh = Hash[obj.map { |k, v| [k.to_s, v] }]
-        options.key?(:without_stats) ? hsh.select { |k, _v| %w(start end assignee length).include?(k) } : hsh
+        options.fetch(:with_stats, false) ? hsh : hsh.select { |k, _v| %w(start end assignee length).include?(k) }
       end
       schedule_out.to_yaml
     end

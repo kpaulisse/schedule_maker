@@ -26,35 +26,38 @@ module ScheduleMaker
     # Constructor
     #
     # @param participants [Hash<String,Fixnum>] Participant name (key) and shift length (value)
-    # @param count [Fixnum] Number of consecutive schedules to generate
-    # @param prev_rotation [Array<Period>] Previous rotation to use in scoring
-    # @param init_sched [Array<Period>] Starting point
     # @param options
-    #   - :start      => DateTime object representing start date of this period
-    #   - :day_length => Float representing the length of a "day" (1.0 is normal)
-    def initialize(participants, count = 1, prev_rotation = [], init_sched = nil, options = {}, pain_classes = nil)
+    #   - :count         => [Fixnum] Number of times to repeat the rotation (default = 1)
+    #   - :prev_rotation => [Array<Period>] Previous rotation
+    #   - :init_sched    => [Array<Period>] Starting point schedule
+    #   - :start         => [DateTime] DateTime object representing start date of this period
+    #   - :day_length    => [Float] Representing the length of a "day" (1.0 is normal)
+    #   - :ruleset       => [Hash<Ruleset>] Class name => Ruleset
+    def initialize(participants, options = {})
       raise ArgumentError, 'Participants argument must be a hash' unless participants.is_a?(Hash)
       raise ArgumentError, 'Participants hash cannot be empty' if participants.empty?
-      raise ArgumentError, 'Count must be an integer' unless count.is_a?(Fixnum)
-      raise ArgumentError, 'Count must be >= 1' unless count >= 1
-      @count = count
-      @start = options.fetch(:start, ScheduleMaker::Util.midnight_today)
-      @day_length = options.fetch(:day_length, 1.0)
-      @participants = ScheduleMaker::RotationUtil.prepare_participants(participants, @start)
       @period_lcm = ScheduleMaker::RotationUtil.participant_lcm(participants)
+
+      @count = options.fetch(:count, 1)
+      raise ArgumentError, 'Count must be an integer' unless @count.is_a?(Fixnum)
+      raise ArgumentError, 'Count must be >= 1' unless @count >= 1
+
+      @start = options.fetch(:start, ScheduleMaker::Util.midnight_today)
+      @participants = ScheduleMaker::RotationUtil.prepare_participants(participants, @start)
       @target_spacing = @participants.keys.size - 1
-      @rotation = ScheduleMaker::RotationUtil.initial_schedule_handler(init_sched, @participants, count, @start, @day_length)
+
+      @day_length = options.fetch(:day_length, 86400.0)
+
+      init_sched = options.fetch(:init_sched, nil)
+
+      @rotation = ScheduleMaker::RotationUtil.initial_schedule_handler(init_sched, @participants, @count, @start, @day_length)
+
       @rotation_length = ScheduleMaker::RotationUtil.calculate_rotation_length(@rotation)
-      @prev_rotation = ScheduleMaker::RotationUtil.build_prev_rotation_hash(prev_rotation)
-      @prev_rotation_save = prev_rotation
-      if pain_classes.nil?
-        @default_pain_classes = {
-          ScheduleMaker::DataModel::Spacing.new => 1,
-          ScheduleMaker::DataModel::Weekdays.new => 1
-        }
-      else
-        @default_pain_classes = pain_classes
-      end
+
+      @prev_rotation = ScheduleMaker::RotationUtil.build_prev_rotation_hash(options.fetch(:prev_rotation, []))
+      @prev_rotation_save = options.fetch(:prev_rotation, [])
+
+      @pain_classes = options.fetch(:ruleset, ScheduleMaker::Util.load_ruleset('standard-spacing-algorithm'))
       @pain_override = nil
       @violations = {}
     end
@@ -66,9 +69,13 @@ module ScheduleMaker
     def dup
       options = {
         start: @start,
-        day_length: @day_length
+        day_length: @day_length,
+        count: @count,
+        prev_rotation: @prev_rotation_save,
+        init_sched: @rotation.dup,
+        ruleset: @pain_classes
       }
-      ScheduleMaker::Rotation.new(@participants, @count, @prev_rotation_save, @rotation.dup, options, @default_pain_classes)
+      ScheduleMaker::Rotation.new(@participants, options)
     end
 
     # Causes one iteration upon the rotation. An iteration is ordering the users by their current pain
@@ -114,14 +121,15 @@ module ScheduleMaker
     end
 
     # Get the "pain" array
-    def pain(classes = @default_pain_classes)
+    def pain(classes = @pain_classes)
       return @pain_override unless @pain_override.nil? # For testing mostly
       result = {}
-      classes.each do |obj, weight|
+      classes.each do |class_name, obj|
+        next if class_name =~ /::Hash$/
         x_pain = obj.pain(self)
         x_pain.each do |key, val|
           result[key] ||= { pain: false, score: 0 }
-          result[key][:score] += weight * val[:score] if val.key?(:score)
+          result[key][:score] += val[:score] if val.key?(:score)
           result[key][:pain] = true if val.key?(:pain) && val[:pain]
         end
       end
@@ -129,10 +137,12 @@ module ScheduleMaker
     end
 
     # Test if rotation is valid
-    def valid?(options = {}, classes = @default_pain_classes)
-      classes.keys.each do |obj|
-        opts = options.key?(obj.class.to_s) ? options[obj.class.to_s] : nil
-        return false unless obj.valid?(self, opts)
+    def valid?(_options = {}, classes = @pain_classes)
+      classes.each do |class_name, obj|
+        next if class_name =~ /::Hash$/
+        raise "Invalid object for '#{class_name}' => #{obj.inspect}" if obj.is_a?(Hash)
+        puts "About to validate on #{class_name} for #{obj}"
+        return false unless obj.valid?(self)
       end
       true
     end
@@ -147,7 +157,7 @@ module ScheduleMaker
     # @param options [Hash] Options
     # @param pain [Hash] Use this pain hash instead of re-calculating
     # @return [Fixnum] Calculated pain score
-    def painscore(classes = @default_pain_classes, _options = {}, pain_in = nil)
+    def painscore(classes = @pain_classes, _options = {}, pain_in = nil)
       x_pain = pain_in.nil? ? pain(classes) : pain_in
       result = 0
       pain_multiplier = 0
@@ -188,6 +198,12 @@ module ScheduleMaker
       end
       start_of_shift = @start + (shift_counter * @day_length)
       @participants[max_participant][:start] <= start_of_shift
+    end
+
+    # Override a participant's timezone - FOR USE IN SPEC TESTING ONLY
+    def override_participant_timezone_from_a_spec_test_only(key, timezone)
+      raise "Participant '#{key}' is not defined here" unless @participants.key?(key)
+      @participants[key][:timezone] = timezone
     end
 
     # Override a participant's start date - FOR USE IN SPEC TESTING ONLY

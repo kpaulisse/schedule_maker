@@ -16,24 +16,15 @@ module ScheduleMaker
       # Constructor
       # @param options [Hash] Global options
       def initialize(options = {})
-        @global_options = options
-        @options = @global_options.clone
-        @ruleset = apply_ruleset
+        apply_ruleset(options)
         @pain_override = nil
-      end
-
-      # Default rule set - these should be the rules for assigning pain scores and validating
-      # the rotation, used if no rules are passed in by the caller.
-      # @return [Hash] Rules
-      def default_ruleset
-        {}
       end
 
       # Apply rule set - takes a hash of rules and updates @ruleset. Convention is that passing
       # in a key set to nil will delete that key, and passing in anything else will set that key.
       # You may have to modify this if you do more than a simple key-value store as your rule set.
-      # @param options [Hash] Modifications to make to rule set
-      def apply_ruleset(options = default_ruleset)
+      # @param options [Hash] Definition of rule set
+      def apply_ruleset(options)
         @ruleset ||= {}
         options.each do |key, val|
           if val.nil?
@@ -51,15 +42,13 @@ module ScheduleMaker
       # @param rotation [ScheduleMaker::Rotation] Rotation object
       # @param options [Hash] Options to override global options
       # @result [Hash<Participant,Object>] Pain score for each participant
-      def pain(rotation, options_in = {})
+      def pain(rotation, _options_in = {})
         return @pain_override unless @pain_override.nil?
-        options = @global_options.merge(options_in)
         result = {}
         rotation.rotation.each do |period|
           result[period.participant] ||= { score: 0 }
           # Do something to calculate the score here and
           # adjust result[period.participant][:score] accordingly
-          result[period.participant] += options.key?(:score) ? options[:score] : 0 # Trivial, dummy case
         end
         result
       end

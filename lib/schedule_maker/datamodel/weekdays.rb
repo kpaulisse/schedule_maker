@@ -15,17 +15,17 @@ module ScheduleMaker
     # Options:
     # - minimum_shift_hours [Fixnum] Don't report on participants covering less than this number of hours
     class Weekdays
-      attr_accessor :violations, :date_cache, :hour_cache, :cache
+      attr_accessor :violations, :hour_cache, :cache
 
       # Constructor
       # @param options [Hash] Global options
-      def initialize(options = {})
-        @global_options = options
+      def initialize(options = ScheduleMaker::Util.load_ruleset('weekends-are-bad')["#{self.class}::Hash"])
         @pain_override = nil
-        @ruleset = apply_ruleset
+        @ruleset = apply_ruleset(options)
         @cache ||= {}
         @date_cache ||= {}
         @hour_cache ||= {}
+        @timezone_cache ||= {}
         @day_to_period = {
           sunday: :weekend,
           monday: :weekday,
@@ -35,17 +35,11 @@ module ScheduleMaker
           friday: :weekday,
           saturday: :weekend
         }
-      end
-
-      # Default rule set
-      def default_ruleset
-        # Leaving this blank in the gem, because in some cases, weekends are good.
-        # In other cases, weekends are bad.
-        {}
+        @day_array = [:sunday, :monday, :tuesday, :wednesday, :thursday, :friday, :saturday]
       end
 
       # Create rule set
-      def apply_ruleset(options = default_ruleset)
+      def apply_ruleset(options)
         @ruleset ||= {}
         options.each do |key, val|
           if val.nil?
@@ -56,26 +50,19 @@ module ScheduleMaker
         end
       end
 
-      # Cached dates
-      def cached_date(time_in, timezone = 'UTC')
-        return @date_cache[time_in][timezone] if @date_cache.key?(time_in) && @date_cache[time_in].key?(timezone)
-        @date_cache[time_in] ||= {}
-        @date_cache[time_in][timezone] = ScheduleMaker::Util.dateparse(time_in, timezone)
-        @date_cache[time_in][timezone]
-      end
-
       # Cached hours
       def cached_hour(key, timezone = 'UTC')
-        return @hour_cache[key][timezone] if @hour_cache.key?(key) && @hour_cache[key].key?(timezone)
-        @hour_cache[key] ||= {}
-        @hour_cache[key][timezone] = [:sunday, :monday, :tuesday, :wednesday, :thursday, :friday, :saturday][key.wday]
-        @hour_cache[key][timezone]
+        return @hour_cache[key.to_i][timezone] if @hour_cache.key?(key.to_i) && @hour_cache[key.to_i].key?(timezone)
+        other_timezone = ScheduleMaker::Util.offset_tz(key, timezone, @timezone_cache)
+        @hour_cache[key.to_i] ||= {}
+        @hour_cache[key.to_i][timezone] = @day_array[other_timezone.wday]
+        @hour_cache[key.to_i][timezone]
       end
 
       # Need to cache date lookups and stats
       def get_hours(start, endt, timezone = 'UTC', result = nil)
-        start_val = start.strftime('%s')
-        end_val = endt.strftime('%s')
+        start_val = start.to_i
+        end_val = endt.to_i
         if @cache.key?(start_val) && @cache[start_val].key?(end_val) && @cache[start_val][end_val].key?(timezone)
           return @cache[start_val][end_val][timezone]
         end
@@ -93,13 +80,12 @@ module ScheduleMaker
         @cache[start_val] ||= {}
         @cache[start_val][end_val] ||= {}
         @cache[start_val][end_val][timezone] ||= {}
-        start_time = cached_date(start, timezone)
-        end_time = cached_date(endt, timezone)
-        0.upto((24 * (end_time - start_time).to_f).to_i - 1) do |index|
-          key = (start_time + index * (1 / 24.0) + 0.00000001)
-          wday = cached_hour(key, timezone)
+        iter = start.dup
+        until iter >= endt
+          wday = cached_hour(iter, timezone)
           result[wday] += 1
           result[@day_to_period[wday]] += 1
+          iter += 3600
         end
         @cache[start_val][end_val][timezone] = result
         result
@@ -107,14 +93,15 @@ module ScheduleMaker
 
       # Calculate the pain array
       # @param rotation [ScheduleMaker::Rotation] Rotation object
-      # @param options [Hash] Options to override global options
       # @result [Hash<Participant,Fixnum>] Pain score for each participant
-      def pain(rotation, _options_in = {})
+      def pain(rotation, options_in = {})
         return @pain_override unless @pain_override.nil?
-        return rotation.participants.map { |k, _v| [k, { score: 0, skipped: true }] }.to_h if @ruleset.empty?
+        if @ruleset.empty? && !options_in.fetch(:force_calc, false)
+          return rotation.participants.map { |k, _v| [k, { score: 0, skipped: true }] }.to_h
+        end
         result = {}
         timezone_cache = {}
-        counter = 0
+        iter = rotation.start.clone
         rotation.rotation.each do |period|
           result[period.participant] ||= { score: 0, shifts: 0, skipped: false }
           result[period.participant][:shifts] += 1
@@ -126,14 +113,12 @@ module ScheduleMaker
             else
               'UTC'
             end
-          start_time = rotation.start + (counter * rotation.day_length * period.period_length)
-          end_time = rotation.start + ((1 + counter) * rotation.day_length * period.period_length)
-          hours = get_hours(start_time, end_time, timezone)
+          hours = get_hours(iter, iter + rotation.day_length * period.period_length, timezone)
           hours.each do |k, v|
             result[period.participant][k] ||= 0
             result[period.participant][k] += v
           end
-          counter += 1
+          iter += rotation.day_length * period.period_length
         end
         result.each do |participant, val|
           total_hours = val[:weekend] + val[:weekday]
@@ -148,10 +133,10 @@ module ScheduleMaker
       end
 
       # Valid?
-      def valid?(rotation, options = {})
+      def valid?(rotation, _options = {})
         return true if @ruleset.empty?
         violations = []
-        x_pain = pain(rotation, options)
+        x_pain = pain(rotation)
         x_pain.each do |participant, val|
           total_hours = val[:weekend] + val[:weekday]
           next if total_hours == 0

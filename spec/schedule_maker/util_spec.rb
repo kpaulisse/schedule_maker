@@ -61,8 +61,8 @@ describe ScheduleMaker::Util do
 
   describe '#midnight_today' do
     it 'Should return the time equal to midnight today' do
-      now = DateTime.now
-      midnight = DateTime.new(now.year, now.month, now.day)
+      now = Time.now
+      midnight = Time.new(now.year, now.month, now.day)
       expect(ScheduleMaker::Util.midnight_today).to eq(midnight)
     end
   end
@@ -80,22 +80,36 @@ describe ScheduleMaker::Util do
       expect { ScheduleMaker::Util.dateparse('badgers') }.to raise_error(ArgumentError)
     end
 
-    it 'Should return an existing DateTime object' do
-      now = DateTime.now
-      expect(ScheduleMaker::Util.dateparse(now)).to eq(now)
+    it 'Should return an existing Time object' do
+      date_obj = Time.utc(2001, 2, 3, 4, 5, 6)
+      expect(ScheduleMaker::Util.dateparse(date_obj)).to eq(date_obj)
     end
 
-    it 'Should convert a string to a DateTime object' do
-      date_obj = DateTime.new(2001, 2, 3, 4, 5, 6)
+    it 'Should convert a string to a Time object' do
+      date_obj = Time.utc(2001, 2, 3, 4, 5, 6)
       date_str = '2001-02-03T04:05:06'
       expect(ScheduleMaker::Util.dateparse(date_str)).to eq(date_obj)
     end
 
-    it 'Should be timezone aware' do
+    it 'Should be timezone aware converting strings' do
       date_str = '2001-02-03T04:05:06'
       expect(ScheduleMaker::Util.dateparse(date_str, 'UTC').hour).to eq(4)
       expect(ScheduleMaker::Util.dateparse(date_str, 'America/Chicago').hour).to eq(22)
       expect(ScheduleMaker::Util.dateparse(date_str, 'America/Los_Angeles').hour).to eq(20)
+    end
+
+    it 'Should be timezone aware converting Time objects' do
+      date_obj = Time.utc(2001, 2, 3, 4, 5, 6)
+      expect(ScheduleMaker::Util.dateparse(date_obj, 'UTC').hour).to eq(4)
+      expect(ScheduleMaker::Util.dateparse(date_obj, 'America/Chicago').hour).to eq(22)
+      expect(ScheduleMaker::Util.dateparse(date_obj, 'America/Los_Angeles').hour).to eq(20)
+    end
+
+    it 'Should be DST aware converting Time objects' do
+      date_obj = Time.utc(2001, 7, 3, 4, 5, 6)
+      expect(ScheduleMaker::Util.dateparse(date_obj, 'UTC').hour).to eq(4)
+      expect(ScheduleMaker::Util.dateparse(date_obj, 'America/Chicago').hour).to eq(23)
+      expect(ScheduleMaker::Util.dateparse(date_obj, 'America/Los_Angeles').hour).to eq(21)
     end
   end
 end
