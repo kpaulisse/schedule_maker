@@ -50,27 +50,37 @@ module ScheduleMaker
 
     # Get the date/time object corresponding to midnight today
     def self.midnight_today
-      now = DateTime.now
-      DateTime.new(now.year, now.month, now.day)
+      now = Time.now
+      Time.new(now.year, now.month, now.day)
     end
 
     # Parse date string
     # @param date_in [String] Date in the format XXXX-XX-XXTXX:XX:XX
     # @param timezone [String] Time zone to return object in (assuming date_in is UTC)
     # @return DateTime object
-    def self.dateparse(date_in, timezone = nil)
-      return offset_tz(date_in, timezone) if date_in.is_a?(DateTime)
+    def self.dateparse(date_in, timezone = 'UTC')
+      return offset_tz(date_in, timezone) if date_in.is_a?(Time)
       raise ArgumentError, 'Date string cannot be nil' if date_in.nil?
       raise ArgumentError, 'Date expects string' unless date_in.is_a?(String)
-      raise ArgumentError, 'Date expects format XXXX-XX-XXTXX:XX:XX' unless date_in =~ /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/
-      offset_tz(DateTime.parse("#{date_in}+00:00"), timezone)
+      if date_in =~ /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/
+        return offset_tz(Time.utc(
+          Regexp.last_match(1),
+          Regexp.last_match(2),
+          Regexp.last_match(3),
+          Regexp.last_match(4),
+          Regexp.last_match(5),
+          Regexp.last_match(6),
+          0
+        ), timezone)
+      end
+      raise ArgumentError, 'Date expects format XXXX-XX-XXTXX:XX:XX'
     end
 
     # Offset timezone
-    def self.offset_tz(date_in, timezone = nil)
-      return date_in if timezone.nil?
-      offset = TZInfo::Timezone.get(timezone).current_period.utc_total_offset / (24.0 * 60 * 60)
-      date_in.new_offset(offset)
+    def self.offset_tz(date_in, timezone = 'UTC', timezone_cache = {})
+      return date_in if timezone.nil? || timezone == 'UTC'
+      timezone_cache[timezone] = TZInfo::Timezone.get(timezone) unless timezone_cache.key?(timezone)
+      timezone_cache[timezone].utc_to_local(date_in)
     end
 
     # Render ERB
@@ -85,6 +95,22 @@ module ScheduleMaker
       text = ERB.new(File.read(file_path), nil, '-').result(obj.getbinding)
       return text if prefix.empty?
       text.split("\n").map { |line| prefix + line + "\n" }.join('')
+    end
+
+    # Load a rule set from a YAML file
+    # @param filename [String] Name of file (in 'rulesets' directory, without .yaml extension)
+    # @result [Hash] Rule set loaded from file
+    def self.load_ruleset(filename)
+      check_file = [filename, File.join(File.expand_path('../../rulesets', File.dirname(__FILE__)), filename + '.yaml')]
+      check_file.each do |filepath|
+        next unless File.file?(filepath)
+        yaml_content = YAML.load_file(filepath)
+        yaml_content.each do |k, v|
+          obj = Object.const_get(k)
+          return { k => obj.new(v), "#{k}::Hash" => v }
+        end
+      end
+      raise "Unable to load ruleset '#{file}'"
     end
 
     # Load a rotation from a YAML file

@@ -39,19 +39,19 @@ def valid?(schedule, ruleset, options)
   result = schedule.rotation.valid?(ruleset)
   return true if result
   puts '- Violation(s) detected'.red
-  puts schedule.rotation.violations.map { |x| "   #{x.inspect}".blue }.join("\n")
+  puts schedule.rotation.violations.map { |x| "   #{x.inspect}".red }.join("\n")
   false
 end
 
 # Main program flow
 def main(options)
-  raise "Error: Missing option '-c <rotation_file>'; please see #{File.basename(__FILE__)} --help" if options[:rotation].nil?
-  rotation = ScheduleMaker::Util.load_rotation_from_yaml(options[:rotation], options[:valid_shift_lengths])
+  raise "Error: Missing option '-c <rotation_file>'; please see #{File.basename(__FILE__)} --help" if options[:rotation_yaml].nil?
+  rotation_yaml = ScheduleMaker::Util.load_rotation_from_yaml(options[:rotation_yaml], options[:valid_shift_lengths])
   schedule = nil
   until valid?(schedule, options[:ruleset], options)
     start_str = options[:start].strftime('%Y-%m-%dT%H:%M:%S')
     puts "- Building schedule beginning #{start_str}...".white
-    schedule = ScheduleMaker::Schedule.new(rotation, options)
+    schedule = ScheduleMaker::Schedule.new(rotation_yaml, options)
     schedule.optimize(
       max_iterations: schedule.rotation.rotation_length * schedule.rotation.participants.keys.size,
       reset_try_max: options[:optimize_passes],
@@ -67,11 +67,12 @@ def main(options)
   end
   puts schedule.render_erb('stats/summary_stats', :stats, '# ')
   puts schedule.render_erb('stats/individual_stats', :stats, '# ')
-  puts schedule.to_yaml(without_stats: true)
+  puts schedule.to_yaml(with_stats: options[:details])
 end
 
 options = {
   debug: false,
+  details: false,
   rotation: nil,
   start: ScheduleMaker::Util.midnight_today,
   rotation_count: 1,
@@ -99,7 +100,7 @@ OptionParser.new do |opts|
   opts.on('-c', '--config=FILENAME', 'Specify rotation config YAML file') do |rotation_file|
     filepath = rotation_file =~ %r{/} ? rotation_file : File.join(Dir.getwd, rotation_file)
     raise "Specified rotation file '#{rotation_file}' does not exist" unless File.file?(filepath)
-    options[:rotation] = filepath
+    options[:rotation_yaml] = filepath
   end
 
   # Specify the start date for rotation; default to midnight tonight
@@ -122,6 +123,11 @@ OptionParser.new do |opts|
     filepath = rotation_file =~ %r{/} ? rotation_file : File.join(archive_dir, rotation_file)
     raise "Specified previous rotation file '#{rotation_file}' does not exist" unless File.file?(filepath)
     options[:previous] = filepath
+  end
+
+  # Number of consecutive rotations to create; defaults to 1
+  opts.on('--details', 'Include additional details in the scheduling') do |details|
+    options[:details] = details
   end
 
   # Number of consecutive rotations to create; defaults to 1
@@ -166,16 +172,11 @@ OptionParser.new do |opts|
   opts.on('-r', '--ruleset=FILE1,FILE2,...', Array, 'Load rule set(s) from files') do |ruleset_files|
     options[:ruleset] = {}
     ruleset_files.each do |file|
-      data = nil
-      check_file = [file, File.join(File.expand_path('../rulesets', File.dirname(__FILE__)), file + '.yaml')]
-      check_file.each do |filepath|
-        next unless File.file?(filepath)
-        data = YAML.load_file(filepath)
-        puts "- Loaded ruleset: #{File.basename(filepath)}".white
-        break
+      data = ScheduleMaker::Util.load_ruleset(file)
+      puts "- Loaded ruleset: #{File.basename(file).gsub(/\.yaml$/, '')}".white
+      data.each do |k, v|
+        options[:ruleset][k] = v
       end
-      raise "Unable to load ruleset '#{file}'" unless data.is_a?(Hash)
-      options[:ruleset].merge!(data)
     end
   end
 

@@ -13,20 +13,17 @@ module ScheduleMaker
     class Spacing
       # Constructor
       # @param options [Hash] Global options
-      def initialize(options = {})
-        @global_options = options
-        @options = @global_options.clone
+      def initialize(options = ScheduleMaker::Util.load_ruleset('standard-spacing-algorithm')["#{self.class}::Hash"])
         @pain_override = nil
-        apply_ruleset
+        apply_ruleset(options)
       end
 
       # Calculate the pain array
       # @param rotation [ScheduleMaker::Rotation] Rotation object
       # @param options [Hash] Options to override global options
       # @result [Hash<Participant,Fixnum>] Pain score for each participant
-      def pain(rotation, options_in = {})
+      def pain(rotation, _options_in = {})
         return @pain_override unless @pain_override.nil?
-        @options = @global_options.merge(options_in)
         result = {}
         @target_spacing = rotation.target_spacing
         @prev_rotation = rotation.prev_rotation
@@ -86,25 +83,8 @@ module ScheduleMaker
         end
       end
 
-      # Default rule set
-      def default_ruleset
-        {
-          max: 2,
-          threshold: {
-            1 => {
-              weight: 0,
-              max_percent: 1.00,
-              max_percent_cutoff: 5
-            },
-            2 => {
-              max_count: 2
-            }
-          }
-        }
-      end
-
       # Create rule set
-      def apply_ruleset(options = default_ruleset)
+      def apply_ruleset(options)
         @ruleset = {}
 
         # Maximum cumulative score
@@ -114,89 +94,99 @@ module ScheduleMaker
         end
 
         # Thresholds and weights
+        raise 'Invalid ruleset for ScheduleMaker::DataModel::Spacing - No thresholds defined' unless options.key?(:threshold)
         @ruleset[:threshold] ||= {}
-        if options.key?(:threshold)
-          options[:threshold].each do |threskey, thresval|
-            if thresval.nil?
-              @ruleset[:threshold].delete(threskey)
-            else
-              @ruleset[:threshold][threskey] = thresval
-            end
+        options[:threshold].each do |threskey, thresval|
+          if thresval.nil?
+            @ruleset[:threshold].delete(threskey)
+          else
+            @ruleset[:threshold][threskey] = thresval
           end
         end
       end
 
-      # Validate rotation
-      def valid?(rotation, options = nil)
-        apply_ruleset unless @ruleset.key?(:threshold)
-        apply_ruleset(options) unless options.nil?
-        threshold_max = @ruleset[:threshold].keys.max
+      # Validate a given participant
+      def participant_violations(participant, val, rotation)
+        return [] unless val.key?(:spacing)
+        return [] if val[:spacing].empty?
+
+        # Result
         violations = []
-        x_pain = pain(rotation).dup
-        x_pain.each do |participant, val|
-          next unless val.key?(:spacing)
-          next if val[:spacing].empty?
+        threshold_max = @ruleset[:threshold].keys.max
 
-          # Each spacing is a number representing the distance between the target spacing
-          # and the actual spacing. The number of "stars" was used in the reporting to indicate
-          # how badly this spacing missed the target, with more stars = more pain. Calculate the
-          # number of "stars" for each spacing.
-          period_length = rotation.participants[participant][:period_length]
-          val[:stars] = val[:spacing].map { |k| k > 0 ? ((1.0 * k) / (1.0 * Math.sqrt(period_length))).ceil : 0 }
+        # Each spacing is a number representing the distance between the target spacing
+        # and the actual spacing. The number of "stars" was used in the reporting to indicate
+        # how badly this spacing missed the target, with more stars = more pain. Calculate the
+        # number of "stars" for each spacing.
+        period_length = rotation.participants[participant][:period_length]
+        val[:stars] = val[:spacing].map { |k| k > 0 ? ((1.0 * k) / (1.0 * Math.sqrt(period_length))).ceil : 0 }
 
-          # For each item in the threshold, calculate the % of spacings that have that many stars.
-          counts = Hash.new(0)
-          val[:stars].each { |k| counts[k] += 1 if k > 0 }
+        # For each item in the threshold, calculate the % of spacings that have that many stars.
+        counts = Hash.new(0)
+        val[:stars].each { |k| counts[k] += 1 if k > 0 }
 
-          # Assign a cumulative pain score for each point in the threshold, and also check whether
-          # the rotation should be immediately invalidated because a particular score exceeds a
-          # maximum threshold.
-          score = 0
-          counts.each do |countkey_, countval|
-            countkey = countkey_.to_i
+        # Assign a cumulative pain score for each point in the threshold, and also check whether
+        # the rotation should be immediately invalidated because a particular score exceeds a
+        # maximum threshold.
+        score = 0
+        counts.each do |countkey_, countval|
+          countkey = countkey_.to_i
 
-            # Score is worse than any of the keys in the threshold
-            if countkey > threshold_max
-              violations << {
-                participant: participant,
-                error: "Spacing=#{countkey} Out of Bounds: #{val[:stars].inspect}"
-              }
-              next
-            end
-
-            # Compare to keys in threshold
-            next unless @ruleset[:threshold].key?(countkey)
-            threshold = @ruleset[:threshold][countkey]
-
-            # Does absolute count exceed the maximum?
-            if threshold.key?(:max_count) && countval >= threshold[:max_count]
-              violations << {
-                participant: participant,
-                error: "Spacing=#{countkey} Threshold: #{countval} >= #{threshold[:max_count]}) #{val[:stars].inspect}"
-              }
-              next
-            end
-
-            # Does percentage of shifts exceed the maximum percentage?
-            perc_of_shifts = (1.0 * countval) / (1.0 * val[:spacing].size)
-            if threshold.key?(:max_percent) && perc_of_shifts >= threshold[:max_percent]
-              unless threshold.key?(:max_percent_cutoff) && countval < threshold[:max_percent_cutoff]
-                violations << {
-                  participant: participant,
-                  error: "Spacing=#{countkey} Percent: #{perc_of_shifts} >= #{threshold[:max_percent]} #{val[:stars].inspect}"
-                }
-              end
-            end
-            next unless threshold.key?(:weight)
-            score += (1.0 * threshold[:weight] * countval)
+          # Score is worse than any of the keys in the threshold
+          if countkey > threshold_max
+            violations << {
+              participant: participant,
+              error: "Spacing=#{countkey} Out of Bounds: #{val[:stars].inspect}"
+            }
+            next
           end
 
-          # Cumulative score
-          next unless @ruleset.key?(:max) && score >= @ruleset[:max]
+          # Compare to keys in threshold
+          next unless @ruleset[:threshold].key?(countkey)
+          threshold = @ruleset[:threshold][countkey]
+
+          # Does absolute count exceed the maximum?
+          if threshold.key?(:max_count) && countval >= threshold[:max_count]
+            violations << {
+              participant: participant,
+              error: "Spacing=#{countkey} Threshold: #{countval} >= #{threshold[:max_count]}) #{val[:stars].inspect}"
+            }
+            next
+          end
+
+          # Does percentage of shifts exceed the maximum percentage?
+          perc_of_shifts = (1.0 * countval) / (1.0 * val[:spacing].size)
+          if threshold.key?(:max_percent) && perc_of_shifts >= threshold[:max_percent]
+            unless threshold.key?(:max_percent_cutoff) && countval < threshold[:max_percent_cutoff]
+              violations << {
+                participant: participant,
+                error: "Spacing=#{countkey} Percent: #{perc_of_shifts} >= #{threshold[:max_percent]} #{val[:stars].inspect}"
+              }
+            end
+          end
+          next unless threshold.key?(:weight)
+          score += (1.0 * threshold[:weight] * countval)
+        end
+
+        # Cumulative score
+        if @ruleset.key?(:max) && score >= @ruleset[:max] && score > 0
           violations << {
             participant: participant,
             error: "Overall Score=#{score} >= Threshold=#{@ruleset[:max]} #{val[:stars].inspect}"
           }
+        end
+        violations
+      end
+
+      # Validate rotation
+      def valid?(rotation, options = nil)
+        apply_ruleset(options) unless options.nil?
+        raise 'Invalid ruleset for ScheduleMaker::DataModel::Spacing - No thresholds given' if @ruleset[:threshold].empty?
+        violations = []
+        x_pain = pain(rotation).dup
+        x_pain.each do |participant, val|
+          violations_participant = participant_violations(participant, val, rotation)
+          violations.concat violations_participant
         end
         rotation.set_violations(self.class.to_s, violations)
         violations.empty?

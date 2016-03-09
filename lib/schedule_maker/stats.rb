@@ -14,41 +14,33 @@ module ScheduleMaker
     # @param schedule [ScheduleMaker::Schedule] Computed schedule
     # @param start [DateTime] Start date/time for schedule
     # @param participants [Hash] Participants hash (for time zone calculations)
-    def self.stats(schedule, start, participants = {}, sked = nil)
-      stats = {}
+    def self.stats(schedule, start, options = {})
       last_assignee = nil
-      sked ||= schedule.as_schedule(start)
+      participants = options.fetch(:participants, schedule.rotation.participants)
+      sked = options.fetch(:initial_schedule, schedule.as_schedule(start))
+      rotation = options.fetch(:rotation, schedule.rotation)
 
+      stats = {}
       timezones = {}
       participants.each do |key, val|
         timezones[key] = ScheduleMaker::Util.get_element_from_hash(val, :timezone, 'UTC')
-      end
-
-      sked.each do |obj|
-        stats[obj[:assignee]] ||= {
-          days: 0, shifts: 0, spacing: [], min_shift: nil, max_shift: nil,
+        stats[key] = {
+          days: 0, shifts: 0, spacing: [], min_shift: nil, max_shift: nil, score: 0,
           sunday: 0, monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0,
           weekend: 0, weekday: 0
         }
+      end
 
-        timezone = timezones.key?(obj[:assignee]) ? timezones[obj[:assignee]] : 'UTC'
-        start_time = ScheduleMaker::Util.dateparse(obj[:start], timezone)
-        end_time = ScheduleMaker::Util.dateparse(obj[:end], timezone)
-        weekdays_seen = {}
-        0.upto((24 * (end_time - start_time).to_f).to_i - 1) do |index|
-          wday = (start_time + index * (1 / 24.0) + 0.00000001).wday
-          weekdays_seen[wday] ||= 0
-          weekdays_seen[wday] += 1
+      weekday_obj = ScheduleMaker::DataModel::Weekdays.new
+      weekday_calc = weekday_obj.pain(rotation, force_calc: true)
+      weekday_calc.each do |participant, obj|
+        obj.each do |key, val|
+          stats[participant][key] += val if val.is_a?(Fixnum)
         end
-        weekdays_seen.keys.each do |day_of_week|
-          c = weekdays_seen[day_of_week]
-          stats[obj[:assignee]][[:sunday, :monday, :tuesday, :wednesday, :thursday, :friday, :saturday][day_of_week]] += c
-          stats[obj[:assignee]][:weekday] += c if day_of_week >= 1 && day_of_week <= 5
-          stats[obj[:assignee]][:weekend] += c if day_of_week == 0 || day_of_week == 6
-        end
+      end
 
+      sked.each do |obj|
         stats[obj[:assignee]][:days] += 1
-        stats[obj[:assignee]][:shifts] += 1 if last_assignee != obj[:assignee]
         stats[obj[:assignee]][:spacing] << obj[:prev].to_i if obj.key?(:prev) && obj[:assignee] != last_assignee
         if stats[obj[:assignee]][:min_shift].nil? || obj[:length] < stats[obj[:assignee]][:min_shift]
           stats[obj[:assignee]][:min_shift] = obj[:length]

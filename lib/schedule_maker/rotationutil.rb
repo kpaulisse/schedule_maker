@@ -155,7 +155,7 @@ module ScheduleMaker
     # @rotation_length [Fixnum] Length of the rotation
     def self.calculate_shifts(participants, period_lcm, start, day_length, count = 1)
       schedule_end = start + (count * day_length * participants.keys.size * period_lcm)
-      schedule_length = ((schedule_end - start) * 24 * 60 * 60).to_i
+      schedule_length = (schedule_end - start).to_i
       result = {}
       participants.keys.each do |key|
         this_start = participants[key][:start]
@@ -165,7 +165,7 @@ module ScheduleMaker
         elsif this_start <= start
           result[key] = expected_shifts
         else
-          percent_missed = ((this_start - start) * 24 * 60 * 60).to_i / (schedule_length * 1.0)
+          percent_missed = (this_start - start) * 86400.0 / (schedule_length * day_length)
           result[key] = (((1 - percent_missed) * expected_shifts) + 0.5).to_i
         end
       end

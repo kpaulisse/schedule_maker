@@ -7,5 +7,5 @@
 'ScheduleMaker::DataModel::Weekdays':
   !ruby/symbol weekend:
     !ruby/symbol penalty: 10
-    !ruby/symbol max_percent: 0.5
+    !ruby/symbol max_percent: 0.45
     !ruby/symbol max_percent_cutoff: 3
