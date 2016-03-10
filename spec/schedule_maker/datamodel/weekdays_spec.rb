@@ -5,38 +5,45 @@ describe ScheduleMaker::DataModel::Weekdays do
     @rotations = ScheduleMaker::Spec.load_rotation
     @schedules = ScheduleMaker::Spec.load_schedule
     @start = ScheduleMaker::Util.dateparse('2016-01-01T00:00:00')
+    @alternate_weekend_ruleset = {
+      weekend_range: [
+        [ { day: :friday, hour: 17 } ],
+        [ { day: :saturday, hour: 0 } ],
+        [ { day: :sunday, hour: 0 }, { day: :sunday, hour: 24 } ],
+        [ nil, { day: :monday, hour: 5 } ]
+      ]
+    }
   end
 
-  describe '#cached_hour' do
+  describe '#cached_wday' do
     it 'Should calculate the week day for a particular hour (first hit)' do
       testobj = ScheduleMaker::DataModel::Weekdays.new
-      expect(testobj.cached_hour(@start)).to eq(:friday)
+      expect(testobj.cached_wday(@start)).to eq(:friday)
     end
 
     it 'Should calculate the week day for a particular hour (from the cache)' do
       testobj = ScheduleMaker::DataModel::Weekdays.new
-      _foo = testobj.cached_hour(@start)
-      expect(testobj.cached_hour(@start)).to eq(:friday)
-      expect(testobj.hour_cache[@start.to_i]['UTC']).to eq(:friday)
+      _foo = testobj.cached_wday(@start)
+      expect(testobj.cached_wday(@start)).to eq(:friday)
+      expect(testobj.wday_cache[@start.to_i]['UTC']).to eq(:friday)
     end
 
     it 'Should calculate the week day for a particular hour in a different time zone (first hit)' do
       testobj = ScheduleMaker::DataModel::Weekdays.new
-      expect(testobj.cached_hour(@start, 'America/Chicago')).to eq(:thursday)
-      expect(testobj.cached_hour(@start + 6*3600, 'America/Chicago')).to eq(:friday)
+      expect(testobj.cached_wday(@start, 'America/Chicago')).to eq(:thursday)
+      expect(testobj.cached_wday(@start + 6*3600, 'America/Chicago')).to eq(:friday)
     end
 
     it 'Should calculate the week day for a particular hour in a different time zone (from the cache)' do
       testobj = ScheduleMaker::DataModel::Weekdays.new
-      _foo = testobj.cached_hour(@start, 'America/Chicago')
-      expect(testobj.cached_hour(@start, 'America/Chicago')).to eq(:thursday)
-      expect(testobj.hour_cache[@start.to_i]['America/Chicago']).to eq(:thursday)
+      _foo = testobj.cached_wday(@start, 'America/Chicago')
+      expect(testobj.cached_wday(@start, 'America/Chicago')).to eq(:thursday)
+      expect(testobj.wday_cache[@start.to_i]['America/Chicago']).to eq(:thursday)
 
-      _foo = testobj.cached_hour(@start + 6*3600, 'America/Chicago')
-      expect(testobj.cached_hour(@start + 6*3600, 'America/Chicago')).to eq(:friday)
-      expect(testobj.hour_cache[@start.to_i + 6*3600]['America/Chicago']).to eq(:friday)
+      _foo = testobj.cached_wday(@start + 6*3600, 'America/Chicago')
+      expect(testobj.cached_wday(@start + 6*3600, 'America/Chicago')).to eq(:friday)
+      expect(testobj.wday_cache[@start.to_i + 6*3600]['America/Chicago']).to eq(:friday)
     end
-
   end
 
   describe '#get_hours' do
@@ -129,6 +136,108 @@ describe ScheduleMaker::DataModel::Weekdays do
       }
       result = testobj.get_hours(start_time, end_time, 'America/Chicago')
       expect(result).to eq(answer)
+    end
+
+    it 'Should calculate alternate weekends for a shift (UTC)' do
+      testobj = ScheduleMaker::DataModel::Weekdays.new(@alternate_weekend_ruleset)
+      start_time = @start
+      end_time = @start + (5 * 86400)
+      result = testobj.get_hours(start_time, end_time)
+      answer = {
+        sunday: 24, monday: 24, tuesday: 24, wednesday: 0,
+        thursday: 0, friday: 24, saturday: 24,
+        weekend: 60, weekday: 60
+      }
+      expect(result).to eq(answer)
+    end
+
+    it 'Should calculate alternate weekends for a shift (Another Timezone)' do
+      testobj = ScheduleMaker::DataModel::Weekdays.new(@alternate_weekend_ruleset)
+      start_time = @start
+      end_time = @start + (5 * 86400)
+      result = testobj.get_hours(start_time, end_time, 'America/Chicago')
+      answer = {
+        sunday: 24, monday: 24, tuesday: 18, wednesday: 0,
+        thursday: 6, friday: 24, saturday: 24,
+        weekend: 60, weekday: 60
+      }
+      expect(result).to eq(answer)
+    end
+  end
+
+  describe '#is_weekend?' do
+    it 'Should default to saturday+sunday if no alternate rules are specified (UTC)' do
+      testobj = ScheduleMaker::DataModel::Weekdays.new
+      answer = {
+        '2016-01-01T16:00:00' => false,
+        '2016-01-01T17:00:00' => false,
+        '2016-01-02T18:00:00' => true,
+        '2016-01-03T04:00:00' => true,
+        '2016-01-04T05:00:00' => false,
+        '2016-01-04T06:00:00' => false
+      }
+      answer.each do |timestamp, expected_result|
+        test_time = ScheduleMaker::Util.dateparse(timestamp)
+        result = testobj.is_weekend?(test_time.wday, test_time.hour)
+        expect(result).to eq(expected_result), "Failed :weekend test for #{timestamp}"
+      end
+    end
+
+    it 'Should default to saturday+sunday if no alternate rules are specified (Alternate timezone)' do
+      testobj = ScheduleMaker::DataModel::Weekdays.new
+      answer = {
+        '2016-01-01T16:00:00' => false,
+        '2016-01-02T00:00:00' => false,
+        '2016-01-02T06:00:00' => true,
+        '2016-01-03T04:00:00' => true,
+        '2016-01-04T05:00:00' => true,
+        '2016-01-04T06:00:00' => false
+      }
+      answer.each do |timestamp, expected_result|
+        test_time = ScheduleMaker::Util.dateparse(timestamp, 'America/Chicago')
+        result = testobj.is_weekend?(test_time.wday, test_time.hour)
+        expect(result).to eq(expected_result), "Failed :weekend test for #{timestamp}"
+      end
+    end
+
+    it 'Should calculate alternate weekends for a specific time (UTC)' do
+      testobj = ScheduleMaker::DataModel::Weekdays.new(@alternate_weekend_ruleset)
+      answer = {
+        '2016-01-01T16:00:00' => false,
+        '2016-01-01T17:00:00' => true,
+        '2016-01-01T18:00:00' => true,
+        '2016-01-04T04:00:00' => true,
+        '2016-01-04T05:00:00' => false,
+        '2016-01-04T06:00:00' => false
+      }
+      answer.each do |timestamp, expected_result|
+        test_time = ScheduleMaker::Util.dateparse(timestamp)
+        result = testobj.is_weekend?(test_time.wday, test_time.hour)
+        expect(result).to eq(expected_result), "Failed :weekend test for #{timestamp}"
+      end
+    end
+
+    it 'Should calculate alternate weekends for a specific time (Alternate timezone)' do
+      testobj = ScheduleMaker::DataModel::Weekdays.new(@alternate_weekend_ruleset)
+      answer = {
+        '2016-01-01T16:00:00' => false,
+        '2016-01-01T17:00:00' => false,
+        '2016-01-01T18:00:00' => false,
+        '2016-01-01T22:00:00' => false,
+        '2016-01-01T23:00:00' => true,
+        '2016-01-02T00:00:00' => true,
+        '2016-01-04T04:00:00' => true,
+        '2016-01-04T05:00:00' => true,
+        '2016-01-04T06:00:00' => true,
+        '2016-01-04T10:00:00' => true,
+        '2016-01-04T11:00:00' => false,
+        '2016-01-04T12:00:00' => false
+      }
+      answer.each do |timestamp, expected_result|
+        test_time = ScheduleMaker::Util.dateparse(timestamp, 'America/Chicago')
+        result = testobj.is_weekend?(test_time.wday, test_time.hour)
+        expect(result).to eq(expected_result), "Failed :weekend test for #{timestamp}"
+      end
     end
   end
 

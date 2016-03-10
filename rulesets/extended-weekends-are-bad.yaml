@@ -1,0 +1,23 @@
+# Rule set for ScheduleMaker defining weekends as less desirable than weekdays
+# ---------------------
+# Note that all rule sets must conform to the following:
+# - All hash keys are !ruby/symbol
+# - The content of each hash key varies by data model
+
+'ScheduleMaker::DataModel::Weekdays':
+  !ruby/symbol weekend:
+    !ruby/symbol penalty: 7
+    !ruby/symbol max_percent: 0.45
+    !ruby/symbol max_percent_cutoff: 2
+  # Friday 17:00 - Monday 02:59:59
+  !ruby/symbol weekend_range:
+    - - !ruby/symbol: day: :friday
+        !ruby/symbol: hour: 17
+    - - !ruby/symbol: day: :saturday
+        !ruby/symbol: hour: 0
+    - - !ruby/symbol: day: :sunday
+        !ruby/symbol: hour: 0
+    - - !ruby/symbol: day: :monday
+        !ruby/symbol: hour: 0
+      - !ruby/symbol: day: :monday
+        !ruby/symbol: hour: 3
