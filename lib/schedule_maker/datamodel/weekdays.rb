@@ -15,7 +15,7 @@ module ScheduleMaker
     # Options:
     # - minimum_shift_hours [Fixnum] Don't report on participants covering less than this number of hours
     class Weekdays
-      attr_accessor :violations, :hour_cache, :cache
+      attr_accessor :violations, :wday_cache, :hour_cache, :cache
 
       # Constructor
       # @param options [Hash] Global options
@@ -24,18 +24,11 @@ module ScheduleMaker
         @ruleset = apply_ruleset(options)
         @cache ||= {}
         @date_cache ||= {}
+        @wday_cache ||= {}
         @hour_cache ||= {}
         @timezone_cache ||= {}
-        @day_to_period = {
-          sunday: :weekend,
-          monday: :weekday,
-          tuesday: :weekday,
-          wednesday: :weekday,
-          thursday: :weekday,
-          friday: :weekday,
-          saturday: :weekend
-        }
         @day_array = [:sunday, :monday, :tuesday, :wednesday, :thursday, :friday, :saturday]
+        @weekend_cache = build_weekend_cache
       end
 
       # Create rule set
@@ -50,13 +43,75 @@ module ScheduleMaker
         end
       end
 
+      # Weekend vs. Weekday
+      def is_weekend?(day, hour)
+        the_day = day.is_a?(Fixnum) ? @day_array[day] : day
+        @weekend_cache[the_day][hour]
+      end
+
+      def build_weekend_cache
+        @ruleset.key?(:weekend_range) ? build_weekend_cache_custom : build_weekend_cache_default
+      end
+
+      def build_weekend_cache_default
+        result = {}
+        @day_array.each do |day|
+          result[day] = Array.new(24, day == :saturday || day == :sunday)
+        end
+        result
+      end
+
+      def build_weekend_cache_custom
+        result = {}
+        @day_array.each do |day|
+          result[day] = Array.new(24, false)
+        end
+        @ruleset[:weekend_range].each do |tuple|
+          # Start at 00:00 on a day, end at a specific hour
+          if tuple[0].nil? && tuple.size == 2
+            tuple_day = tuple[1][:day]
+            tuple_hour = tuple[1][:hour]
+            0.upto(tuple_hour-1) do |hour|
+              result[tuple_day][hour] = true
+            end
+
+          # Start at a specific time on a day, go through EOD
+          elsif tuple.size == 1
+            tuple_day = tuple[0][:day]
+            tuple_hour = tuple[0][:hour]
+            tuple_hour.upto(23) do |hour|
+              result[tuple_day][hour] = true
+            end
+
+          # Specific hour range for a day
+          else
+            tuple_day = tuple[0][:day]
+            tuple_hour_start = tuple[0][:hour]
+            tuple_hour_end = tuple[1][:hour]
+            tuple_hour_start.upto(tuple_hour_end-1) do |hour|
+              result[tuple_day][hour] = true
+            end
+          end
+        end
+        result
+      end
+
       # Cached hours
       def cached_hour(key, timezone = 'UTC')
         return @hour_cache[key.to_i][timezone] if @hour_cache.key?(key.to_i) && @hour_cache[key.to_i].key?(timezone)
         other_timezone = ScheduleMaker::Util.offset_tz(key, timezone, @timezone_cache)
         @hour_cache[key.to_i] ||= {}
-        @hour_cache[key.to_i][timezone] = @day_array[other_timezone.wday]
+        @hour_cache[key.to_i][timezone] = other_timezone.hour
         @hour_cache[key.to_i][timezone]
+      end
+
+      # Cached weekday, by hours
+      def cached_wday(key, timezone = 'UTC')
+        return @wday_cache[key.to_i][timezone] if @wday_cache.key?(key.to_i) && @wday_cache[key.to_i].key?(timezone)
+        other_timezone = ScheduleMaker::Util.offset_tz(key, timezone, @timezone_cache)
+        @wday_cache[key.to_i] ||= {}
+        @wday_cache[key.to_i][timezone] = @day_array[other_timezone.wday]
+        @wday_cache[key.to_i][timezone]
       end
 
       # Need to cache date lookups and stats
@@ -82,9 +137,10 @@ module ScheduleMaker
         @cache[start_val][end_val][timezone] ||= {}
         iter = start.dup
         until iter >= endt
-          wday = cached_hour(iter, timezone)
+          wday = cached_wday(iter, timezone)
           result[wday] += 1
-          result[@day_to_period[wday]] += 1
+          weekday_weekend = is_weekend?(wday, cached_hour(iter, timezone)) ? :weekend : :weekday
+          result[weekday_weekend] += 1
           iter += 3600
         end
         @cache[start_val][end_val][timezone] = result
