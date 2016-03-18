@@ -28,7 +28,7 @@ require 'yaml'
 
 options = {
   subdomain: nil,
-  token: nil,
+  token: ENV['PAGERDUTY_TOKEN'],
   schedule: nil,
   file: nil,
   timezone: 'UTC'
