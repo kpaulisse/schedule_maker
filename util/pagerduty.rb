@@ -117,23 +117,26 @@ end
 schedule = YAML.load_file(options[:file])
 actions = []
 schedule.each do |user_shift|
-  raise "Unable to find PagerDuty ID for '#{user_shift[:assignee]}'!" unless assignees.key?(user_shift[:assignee])
-  actions << { 'user_id' => assignees[user_shift[:assignee]], 'start' => user_shift[:start], 'end' => user_shift[:end] }
+  assignee = user_shift['assignee']
+  raise "Unable to find PagerDuty ID for '#{assignee}'!" unless assignees.key?(assignee)
+  actions << { 'user_id' => assignees[assignee], 'start' => user_shift['start'], 'end' => user_shift['end'] }
 end
 
 #
 # Actually schedule overrides in PagerDuty
 #
 
-override_url = "https://#{options[:subdomain]}.pagerduty.com/api/v1/schedules/#{options[:schedule]}/overrides"
+override_url = "/api/v1/schedules/#{options[:schedule]}/overrides"
 actions.each do |action|
   puts "Scheduling #{action['user_id']} for #{action['start']} - #{action['end']}..."
   body = JSON.generate('override' => action)
   result = pd.post(override_url, body)
-  raise "Failed to create override, status code = #{result.response.code}" unless result.response.code == 201
+  raise "Failed to create override, status code = #{result.response.code}" unless result.response.code == '201'
   pr = result.parsed_response
-  raise "Override failed: #{pr}" unless pr['override']['start'] == action['start'] &&
-                                        pr['override']['end'] == action['end'] &&
+  override_start = pr['override']['start'].sub('Z', '+00:00')
+  override_end = pr['override']['end'].sub('Z', '+00:00')
+  raise "Override failed: #{pr}" unless override_start == action['start'] &&
+                                        override_end == action['end'] &&
                                         pr['override']['user']['id'] == action['user_id']
 end
 
