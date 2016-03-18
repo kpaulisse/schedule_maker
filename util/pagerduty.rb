@@ -90,12 +90,24 @@ end
 
 pd = PagerDuty.new(options[:subdomain], options[:token])
 assignees = {}
-user_list_url = '/api/v1/users?offset=0&limit=100'
-user_list_result = pd.get(user_list_url)
-raise "User list query returned HTTP #{user_list_result.response.code}" unless user_list_result.response.code == 200
-user_list_result.parsed_response['users'].each do |user_obj|
-  next unless user_obj.key?('email') && user_obj['email'] =~ /^(.+?)@/
-  assignees[Regexp.last_match(1)] = user_obj['id']
+offset = 0
+limit = 100
+# Pagination, will break when we get back less than limit
+while true
+  user_list_url = "/api/v1/users?offset=#{offset}&limit=#{limit}"
+  user_list_result = pd.get(user_list_url)
+  raise "User list query returned HTTP #{user_list_result.response.code}" unless user_list_result.response.code == '200'
+  users = user_list_result.parsed_response['users']
+  users.each do |user_obj|
+    next unless user_obj.key?('email') && user_obj['email'] =~ /^(.+?)@/
+    assignees[Regexp.last_match(1)] = user_obj['id']
+  end
+  if users.size < limit
+    # We've hit the end of the user list
+    break
+  end
+  # Next page
+  offset += limit
 end
 
 #
