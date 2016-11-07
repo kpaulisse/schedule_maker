@@ -6,6 +6,8 @@ This gem helps you create a schedule with varying shift lengths. Each participan
 
 Requires Ruby >= 2.1
 
+Please note that I'm not actively using or working on this, since our team has changed to a different approach for on-call scheduling. However I am happy to accept Pull Requests or try to help out in Issues if anyone finds this project of interest.
+
 ## Overview
 
 The resulting schedule will always have these properties:
